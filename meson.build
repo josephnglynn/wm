@@ -6,11 +6,20 @@ project('wm', 'cpp',
   ]
 )
 
+
+if get_option('buildtype').startswith('debug')
+   add_project_arguments('-DDEBUG', language: 'cpp')
+endif
+
 src = [
     'src/main.cpp'
 ]
 
 dep = [
+    dependency('xcb'),
+    dependency('xcb-ewmh'),
+    dependency('xcb-icccm'),
+    dependency('logger', fallback: ['logger', 'logger_dep']),
     dependency('libwm', fallback: ['libwm', 'libwm_dep']),
 ]
 

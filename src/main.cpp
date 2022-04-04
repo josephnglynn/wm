@@ -10,6 +10,7 @@ class custom_shell_t : public flow::shells::shell_t
 {
 public:
 	custom_shell_t() = default;
+	~custom_shell_t() override = default;
 
 	void init(flow::window_manager_t* p_wm) override
 	{
@@ -118,11 +119,12 @@ public:
 
 	void handle_back_window_event(xcb_window_t back_window, xcb_generic_event_t* event) override
 	{
+		wm->get_event_handler(event);
 	}
 
 	void handle_frame_window_event(xcb_window_t frame_window, xcb_generic_event_t* event) override
 	{
-
+		wm->get_event_handler(event);
 	}
 
 	void destroy_back_window(xcb_window_t back_window) override
@@ -154,6 +156,19 @@ private:
 
 int main()
 {
-	auto* wm = new flow::window_manager_t(flow::configs::get_default_config(), new custom_shell_t());
+	logger::init();
+
+#ifdef DEBUG
+	auto* wm = new flow::window_manager_t(
+		flow::configs::get_custom_config(
+			std::string(std::getenv("HOME")) += "/CLionProjects/libwm/config/default_config.json"
+		),
+		new custom_shell_t()
+	);
+#else
+	auto* wm = new flow::window_manager_t(flow::configs::get_default_config(),	new custom_shell_t());
+#endif
+
+	logger::notify("Starting wm");
 	wm->run();
 }
