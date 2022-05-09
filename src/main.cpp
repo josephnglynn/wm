@@ -1,4 +1,5 @@
 #include "logger/logger.hpp"
+#include <thread>
 #define USE_HOOKS
 /*
 #define HOOK_LIST(H)                            \
@@ -91,11 +92,15 @@ int main()
 {
 	logger::init();
 
-
-
-
-
 	flow::server::flow_wm_server_t server;
+	server.run();
+
+	/*
+	 * TO TEST SERVER
+	 * using namespace std::chrono_literals;
+	 * std::this_thread::sleep_for(1000min);
+	 */
+
 
 	auto* wm = new lib_wm::window_manager_t(lib_wm::configs::get_custom_config(std::string(std::getenv("HOME")) += "/CLionProjects/libwm/config/default_config.json"), new custom_shell_t());
 	wm->run();

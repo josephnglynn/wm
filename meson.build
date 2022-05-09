@@ -14,14 +14,13 @@ endif
 src = [
     'src/main.cpp',
     'src/server/server.cpp',
-    'src/messages/messages.cpp'
 ]
 
 dep = [
     dependency('xcb'),
     dependency('xcb-ewmh'),
     dependency('xcb-icccm'),
-    dependency('libwebsockets'),
+    dependency('Poco', method: 'cmake', components: ['Net']),
     dependency('logger', fallback: ['logger', 'logger_dep']),
     dependency('libwm', fallback: ['libwm', 'libwm_dep']),
 ]
