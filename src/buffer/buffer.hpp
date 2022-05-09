@@ -14,9 +14,15 @@ namespace flow::buffers
 	class buffer_t
 	{
 	public:
+
 		explicit buffer_t(size_type size)
 			: m_size(size), m_location(0), m_data(static_cast<data_type*>(std::malloc(size)))
 		{
+		}
+
+		~buffer_t()
+		{
+			free(m_data);
 		}
 
 		void reset()
@@ -40,11 +46,6 @@ namespace flow::buffers
 				m_data = static_cast<data_type*>(realloc(m_data, m_size));
 			}
 			std::memcpy(reinterpret_cast<void*>(m_data + m_location), data, size);
-		}
-
-		~buffer_t()
-		{
-			free(m_data);
 		}
 
 		[[nodiscard]] inline size_type get_size() const { return m_size; }
