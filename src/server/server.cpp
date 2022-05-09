@@ -56,17 +56,19 @@ namespace flow::server
 			lwsl_err("lws init failed!");
 			std::exit(1);
 		}
-
-		auto n = 0;
-		while (n >= 0)
-		{
-			n = lws_service(context, 0);
-		}
-	}
+    }
 
 	flow_wm_server_t::~flow_wm_server_t()
 	{
 		lws_context_destroy(context);
 	}
 
+    flow_wm_server_t::run() 
+    { 
+		auto n = 0;
+		while (n >= 0)
+		{
+			n = lws_service(context, 0);
+		}
+	}
 } // namespace flow::server

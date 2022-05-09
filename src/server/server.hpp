@@ -23,6 +23,7 @@ namespace flow::server
 		flow_wm_server_t();
 		~flow_wm_server_t();
 
+        void run();
         friend int callback(lws *wsi, lws_callback_reasons reson, void* user, void *in, size_t len);
 
 	private:
