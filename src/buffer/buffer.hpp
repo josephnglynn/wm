@@ -57,7 +57,11 @@ namespace flow::buffers
 		data_type* m_data;
 	};
 
-	using char_buffer_t = buffer_t<char, size_t>;
+	/*
+	 * EXAMPLE OF CHAR BUFFER
+	 * using char_buffer_t = buffer_t<char, size_t>;
+	 */
+
 } // namespace flow::buffers
 
 #endif //WM_BUFFER_HPP

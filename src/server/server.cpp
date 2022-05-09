@@ -5,7 +5,13 @@
 #include "server.hpp"
 #include "../macro/macro.hpp"
 #include "../messages/messages.hpp"
+#define class struct
+#define private public
+#define protected public
 #include <Poco/Net/WebSocketImpl.h>
+#undef class
+#undef private
+#undef protected
 #include <logger/logger.hpp>
 #include <thread>
 
@@ -89,34 +95,23 @@ namespace flow::server
 #endif
 	}
 
-	class hacker_class : public Poco::Net::WebSocketImpl
-	{
-	public:
-		inline int receive_header_hack(char mask[4], bool& use_mask)
-		{
-			return receiveHeader(mask, use_mask);
-		}
 
-		inline int receive_payload_hack(char* buffer, int payload_length, char mask[4], bool use_mask)
-		{
-			return receivePayload(buffer, payload_length, mask, use_mask);
-		}
-	};
-
-	inline int receive_bytes(Poco::Net::WebSocketImpl* impl, buffers::char_buffer_t& buffer, int& flags)
+	inline int receive_bytes(Poco::Net::WebSocketImpl* impl, server_buffer_t& buffer, int)
 	{
 		char mask[4];
 		bool use_mask;
-		flags = 0;
-		int payload_length = dynamic_cast<hacker_class*>(impl)->receive_header_hack(mask, use_mask);
+		impl->_frameFlags = 0;
+		int payload_length = impl->receiveHeader(mask, use_mask);
 		if (payload_length <= 0) return payload_length;
 		buffer.resize(payload_length);
-		return dynamic_cast<hacker_class*>(impl)->receive_payload_hack(reinterpret_cast<char*>(buffer.get_data()), payload_length, mask, use_mask);
+		return impl->receivePayload(reinterpret_cast<char*>(buffer.get_data()), payload_length, mask, use_mask);
 	}
 
-	inline int receive_frame(WebSocket& web_socket, buffers::char_buffer_t& buffer, int& flags)
+	inline int receive_frame(WebSocket& web_socket, server_buffer_t& buffer, int& flags)
 	{
-		return receive_bytes(dynamic_cast<Poco::Net::WebSocketImpl*>(web_socket.impl()), buffer, flags);
+		int n = receive_bytes(dynamic_cast<Poco::Net::WebSocketImpl*>(web_socket.impl()), buffer, 0);;
+		flags = dynamic_cast<Poco::Net::WebSocketImpl*>(web_socket.impl())->frameFlags();
+		return n;
 	}
 
 	void WebSocketRequestHandler::handleRequest(HTTPServerRequest& request, HTTPServerResponse& response)
@@ -128,7 +123,7 @@ namespace flow::server
 			int n, flags;
 			do
 			{
-				n = ws.receiveFrame(buffer.get_data(), buffer.get_size(), flags);
+				n = receive_frame(ws, buffer, flags);
 				logger::notify(Poco::format("Frame received (length=%d, flags=0x%x).", n, unsigned(flags)));
 				logger::notify("VALUE:", ( char* ) buffer.get_data());
 				ws.sendFrame(buffer.get_data(), n, flags);

@@ -42,6 +42,8 @@ using Poco::Util::ServerApplication;
 
 namespace flow::server
 {
+	using server_buffer_t = buffers::buffer_t<char, int>;
+
 	class PageRequestHandler: public HTTPRequestHandler
 	{
 	public:
@@ -55,7 +57,7 @@ namespace flow::server
 		WebSocketRequestHandler();
 		void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override;
 	private:
-		buffers::char_buffer_t buffer;
+		server_buffer_t buffer;
 	};
 
 
