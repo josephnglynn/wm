@@ -1,174 +1,102 @@
+#include "logger/logger.hpp"
+#define USE_HOOKS
+/*
+#define HOOK_LIST(H)                            \
+	H(manage_client, clients::client_node_t*)   \
+	H(unmanage_client, clients::client_node_t*) \
+	H(wm_setup_complete, )                      \
+	H(wm_running, )                             \
+	H(wm_stopping, )
+#define UNUSED_HOOK_LIST(H) \
+	H(button_event, xcb_button_press_event_t*)
+*/
+#include "server/server.hpp"
 #include <wm/flow_wm.hpp>
-#include <list>
-#include <thread>
-#include <chrono>
-#include <cstring>
 
-using namespace std::chrono_literals;
-
-class custom_shell_t : public flow::shells::shell_t
+class custom_shell_t : public lib_wm::shells::shell_t
 {
 public:
 	custom_shell_t() = default;
 	~custom_shell_t() override = default;
 
-	void init(flow::window_manager_t* p_wm) override
-	{
-		this->wm = p_wm;
-	}
+	void init(lib_wm::window_manager_t* p_wm) override { this->wm = p_wm; }
 
-	flow::shells::shell_info_t get_shell_info() override
+	lib_wm::shells::shell_info_t get_shell_info() override
 	{
 		return {
 			"Example Shell",
 			"Joseph Glynn",
 			"v0.0.1",
-			"An example shell to showcase some cool stuff"
+			"An example shell to showcase some cool stuff",
 		};
 	}
 
-	xcb_window_t create_back_window() override
-	{
-		xcb_window_t window = 0;
-		base_threads.emplace_back([]
-		{
-		  try
-		  {
-			  std::this_thread::sleep_for(100ms);
-			  std::system("/home/joseph/CLionProjects/flow-wm/build/src/shell/shell");
-		  }
-		  catch (std::exception& error)
-		  {
-			  std::cerr << "OH NO AN ERROR" << std::endl;
-		  }
-		});
+	xcb_window_t create_back_window() override { return 0; }
+	lib_wm::shells::frame_info_t create_frame_window(xcb_window_t client_window) override { return {0, lib_wm::shapes::rectangle_t::zero()}; }
+	[[nodiscard]] const std::vector<std::string>& get_tag_names() const override { return tag_names; }
 
-		while (true)
-		{
-			xcb_generic_event_t* event = xcb_wait_for_event(wm->get_connection());
+	void handle_back_window_event(xcb_window_t back_window, xcb_generic_event_t* event) override {}
+	void handle_frame_window_event(xcb_window_t frame_window, xcb_generic_event_t* event) override {}
 
-			if (event->response_type == XCB_MAP_REQUEST)
-			{
-				xcb_icccm_get_wm_class_reply_t hint;
-				int result = xcb_icccm_get_wm_class_reply(wm->get_connection(),
-					xcb_icccm_get_wm_class_unchecked(wm->get_connection(), window),
-					&hint,
-					nullptr
-				);
+	void destroy_back_window(xcb_window_t back_window) override {}
+	void destroy_frame_window(xcb_window_t frame_window) override {}
 
-				if (result && (strcmp(hint.instance_name, "shell") == 0 || strcmp(hint.class_name, "shell") == 0))
-				{
-					auto* mre = (xcb_map_request_event_t*)event;
-					window = mre->window;
-					xcb_map_window(wm->get_connection(), window);
-					break;
-				}
-			}
-
-			wm->get_event_handler(event);
-		}
-
-		return window;
-	}
-
-	flow::shells::frame_info_t create_frame_window(xcb_window_t client_window) override
-	{
-		xcb_window_t window = 0;
-		std::cout << "CREATING FRAME!" << std::endl;
-		frame_threads.emplace_back(std::thread([]
-		{
-		  try
-		  {
-			  std::this_thread::sleep_for(100ms);
-			  std::system(
-				  "/home/joseph/CLionProjects/flow-wm/build/src/window/window -n name -a desktop_name -e exec_path");
-		  }
-		  catch (std::exception& error)
-		  {
-			  std::cerr << "OH NO AN ERROR" << std::endl;
-		  }
-		}));
-
-		while (true)
-		{
-			xcb_generic_event_t* event = xcb_wait_for_event(wm->get_connection());
-
-			if (event->response_type == XCB_MAP_REQUEST)
-			{
-				xcb_icccm_get_wm_class_reply_t hint;
-				int result = xcb_icccm_get_wm_class_reply(wm->get_connection(),
-					xcb_icccm_get_wm_class_unchecked(wm->get_connection(), window),
-					&hint,
-					nullptr
-				);
-
-				if (result && (strcmp(hint.instance_name, "window") == 0 || strcmp(hint.class_name, "window") == 0))
-				{
-					auto* mre = (xcb_map_request_event_t*)event;
-					window = mre->window;
-					xcb_map_window(wm->get_connection(), window);
-					break;
-				}
-			}
-
-			wm->get_event_handler(event);
-		}
-
-		return { window, flow::shapes::rectangle_t(50, 0, 10, 0) };
-	}
-
-	void handle_back_window_event(xcb_window_t back_window, xcb_generic_event_t* event) override
-	{
-		wm->get_event_handler(event);
-	}
-
-	void handle_frame_window_event(xcb_window_t frame_window, xcb_generic_event_t* event) override
-	{
-		wm->get_event_handler(event);
-	}
-
-	void destroy_back_window(xcb_window_t back_window) override
-	{
-		xcb_ewmh_request_close_window(wm->get_ewmh_connection(),
-			0,
-			back_window,
-			XCB_CURRENT_TIME,
-			XCB_EWMH_CLIENT_SOURCE_TYPE_NORMAL
-		);
-	}
-
-	void destroy_frame_window(xcb_window_t frame_window) override
-	{
-		xcb_ewmh_request_close_window(wm->get_ewmh_connection(),
-			0,
-			frame_window,
-			XCB_CURRENT_TIME,
-			XCB_EWMH_CLIENT_SOURCE_TYPE_NORMAL
-		);
-	}
+	[[nodiscard]] std::vector<lib_wm::keybindings::client_key_press_bind_t>& get_client_key_binds() override { return ckb; }
+	[[nodiscard]] std::vector<lib_wm::keybindings::global_key_press_bind_t>& get_global_key_binds() override { return gkb; }
+	[[nodiscard]] std::vector<lib_wm::keybindings::client_button_press_bind_t>& get_client_button_binds() override { return cbb; }
+	[[nodiscard]] std::vector<lib_wm::keybindings::global_button_press_bind_t>& get_global_button_binds() override { return gbb; }
 
 private:
-	flow::window_manager_t* wm = nullptr;
-	std::list<std::thread> base_threads;
-	std::list<std::thread> frame_threads;
-	std::list<std::thread> shell_elements;
+	lib_wm::window_manager_t* wm = nullptr;
+	const std::vector<std::string> tag_names = {"TAG-1", "TAG-2", "TAG-3", "TAG-4", "TAG-5", "TAG-6", "TAG-7", "TAG-8", "TAG-9", "TAG-10"};
+
+	std::vector<lib_wm::keybindings::client_key_press_bind_t> ckb = {
+
+	};
+
+	std::vector<lib_wm::keybindings::global_key_press_bind_t> gkb = {
+		{lib_wm::ih::create_spawn_handler("rofi -show run"), 64, "r", 0},
+		{lib_wm::ih::create_spawn_handler("alacritty"), 64, "t", 0},
+		{lib_wm::ih::create_kill_client_handler(), 64, "q", 0},
+		{lib_wm::ih::create_change_tag_handler(0), 64, "1", 0},
+		{lib_wm::ih::create_change_tag_handler(1), 64, "2", 0},
+		{lib_wm::ih::create_change_tag_handler(2), 64, "3", 0},
+		{lib_wm::ih::create_change_tag_handler(3), 64, "4", 0},
+		{lib_wm::ih::create_change_tag_handler(4), 64, "5", 0},
+		{lib_wm::ih::create_change_tag_handler(5), 64, "6", 0},
+		{lib_wm::ih::create_change_tag_handler(6), 64, "7", 0},
+		{lib_wm::ih::create_change_tag_handler(7), 64, "8", 0},
+		{lib_wm::ih::create_change_tag_handler(8), 64, "9", 0},
+		{lib_wm::ih::create_change_tag_handler(9), 64, "0", 0},
+		{lib_wm::ih::create_increment_tag_handler(), 64, "=", 0},
+		{lib_wm::ih::create_increment_tag_handler(), 64, "-", 0},
+		{lib_wm::ih::create_set_opacity_handler(0.8), 64, "o", 0},
+		{lib_wm::ih::create_increase_opacity_handler(0.01), 64, ".", 0},
+		{lib_wm::ih::create_decrease_opacity_handler(0.01), 64, ",", 0},
+	};
+
+	std::vector<lib_wm::keybindings::client_button_press_bind_t> cbb = {
+		{lib_wm::ih::create_focus_client_handler(), XCB_MOD_MASK_ANY, 1},
+		{lib_wm::ih::create_move_mouse_handler(), 64, 1},
+		{lib_wm::ih::create_resize_mouse_handler(), 64, 3},
+	};
+
+	std::vector<lib_wm::keybindings::global_button_press_bind_t> gbb = {
+
+	};
 };
+
 
 int main()
 {
 	logger::init();
 
-#ifdef DEBUG
-	auto* wm = new flow::window_manager_t(
-		flow::configs::get_custom_config(
-			std::string(std::getenv("HOME")) += "/CLionProjects/libwm/config/default_config.json"
-		),
-		new custom_shell_t()
-	);
-#else
-	auto* wm = new flow::window_manager_t(flow::configs::get_default_config(),	new custom_shell_t());
-#endif
 
-	logger::notify("Starting wm");
+
+
+
+	flow::server::flow_wm_server_t server;
+
+	auto* wm = new lib_wm::window_manager_t(lib_wm::configs::get_custom_config(std::string(std::getenv("HOME")) += "/CLionProjects/libwm/config/default_config.json"), new custom_shell_t());
 	wm->run();
 }

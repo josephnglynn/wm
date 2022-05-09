@@ -12,13 +12,15 @@ if get_option('buildtype').startswith('debug')
 endif
 
 src = [
-    'src/main.cpp'
+    'src/main.cpp',
+    'src/server/server.cpp'
 ]
 
 dep = [
     dependency('xcb'),
     dependency('xcb-ewmh'),
     dependency('xcb-icccm'),
+    dependency('libwebsockets'),
     dependency('logger', fallback: ['logger', 'logger_dep']),
     dependency('libwm', fallback: ['libwm', 'libwm_dep']),
 ]
