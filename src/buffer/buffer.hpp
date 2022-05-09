@@ -14,7 +14,6 @@ namespace flow::buffers
 	class buffer_t
 	{
 	public:
-
 		explicit buffer_t(size_type size)
 			: m_size(size), m_location(0), m_data(static_cast<data_type*>(std::malloc(size)))
 		{
@@ -30,14 +29,14 @@ namespace flow::buffers
 			m_location = 0;
 		}
 
-		void resize( size_type new_size)
+		void resize(size_type new_size)
 		{
 			if (m_size > new_size) return;
 			m_size = new_size;
 			m_data = static_cast<data_type*>(realloc(m_data, new_size));
 		}
 
-		void write(const void* data,  size_type size)
+		void write(const void* data, size_type size)
 		{
 			data_type new_location = m_location + size;
 			if (new_location > m_size)
