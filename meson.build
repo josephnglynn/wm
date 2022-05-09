@@ -13,7 +13,8 @@ endif
 
 src = [
     'src/main.cpp',
-    'src/server/server.cpp'
+    'src/server/server.cpp',
+    'src/messages/messages.cpp'
 ]
 
 dep = [

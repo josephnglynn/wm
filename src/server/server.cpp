@@ -7,21 +7,12 @@
 namespace flow::server
 {
 
+	int callback(lws* wsi, lws_callback_reasons reson, void* user, void* in, size_t len)
+	{
+		flow_wm_server_t* server = reinterpret_cast<flow_wm_server_t*>(user);
 
-	const lws_protocols protocols[] = {
-		LWS_PLUGIN_PROTOCOL_MINIMAL_SERVER_ECHO,
-		LWS_PROTOCOL_LIST_TERM,
-	};
-
-	const lws_retry_bo retry = {
-		nullptr,
-		0,
-		0,
-		3,
-		10,
-		0
-	};
-
+		return 0;
+	}
 
 	flow_wm_server_t::flow_wm_server_t()
 	{
@@ -32,6 +23,21 @@ namespace flow::server
 #endif
 
 		lwsl_user("LWS minimal ws server | visit http://localhost:7681 (-s = use TLS / https)\n");
+
+		const lws_protocols protocol = {"websocket_minimal", callback, sizeof(session_data_t), 128, 0, this, 0};
+		const lws_protocols protocols[] = {
+            protocol,
+			LWS_PROTOCOL_LIST_TERM,
+		};
+
+		const lws_retry_bo retry = {
+			nullptr,
+			0,
+			0,
+			3,
+			10,
+			0,
+        };
 
 		lws_context_creation_info info = {};
 		info.port = 9600;
@@ -44,7 +50,6 @@ namespace flow::server
 		info.ssl_private_key_filepath = nullptr;
 		info.pvo = nullptr;
 
-
 		context = lws_create_context(&info);
 		if (!context)
 		{
@@ -53,7 +58,8 @@ namespace flow::server
 		}
 
 		auto n = 0;
-		while (n >= 0 ) {
+		while (n >= 0)
+		{
 			n = lws_service(context, 0);
 		}
 	}
