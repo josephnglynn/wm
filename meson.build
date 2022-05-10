@@ -14,6 +14,9 @@ endif
 src = [
     'src/main.cpp',
     'src/server/server.cpp',
+    'src/handlers/handlers.cpp',
+    'src/server_data/server_data.cpp',
+    'src/buffer/buffer.cpp',
 ]
 
 dep = [

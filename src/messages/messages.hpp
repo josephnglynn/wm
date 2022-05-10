@@ -1,11 +1,13 @@
 #ifndef WM_MESSAGES_HPP
 #define WM_MESSAGES_HPP
+#include "../server_data/server_data.hpp"
+
 
 #define MESSAGE_TYPES_REQ(H) \
-	H(successful_connection, )
+	H(sync_wm_servers, )
 
 #define MESSAGE_TYPES_RES(H) \
-	H(successful_connection, )
+	H(sync_wm_servers, server::server_data_t server_data;)
 
 #define PLACE_MESSAGE_TYPE_AS_ENUM_REQ(name, ...) name##_request,
 #define PLACE_MESSAGE_TYPE_AS_ENUM_RES(name, ...) name##_response,

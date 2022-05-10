@@ -13,15 +13,17 @@
 #undef class
 #undef private
 #undef protected
+#include "../handlers/handlers.hpp"
 #include <logger/logger.hpp>
 #include <thread>
 
 namespace flow::server
 {
 
-	flow_wm_server_t::flow_wm_server_t(int port)
+	flow_wm_server_t::flow_wm_server_t(lib_wm::window_manager_t& wm, int port)
 		: server_socket(port), server(new RequestHandlerFactory, server_socket, new HTTPServerParams)
 	{
+		handlers::init_handlers(wm, *this);
 	}
 
 	flow_wm_server_t::~flow_wm_server_t()
@@ -40,7 +42,6 @@ namespace flow::server
 	{
 		server.stop();
 	}
-
 
 	HTTPRequestHandler* RequestHandlerFactory::createRequestHandler(const HTTPServerRequest& request)
 	{
@@ -97,8 +98,7 @@ namespace flow::server
 #endif
 	}
 
-
-	inline int receive_bytes(Poco::Net::WebSocketImpl* impl, server_buffer_t& buffer, int)
+	inline int receive_bytes(Poco::Net::WebSocketImpl* impl, buffers::server_buffer_t& buffer, int)
 	{
 		char mask[4];
 		bool use_mask;
@@ -109,9 +109,9 @@ namespace flow::server
 		return impl->receivePayload(reinterpret_cast<char*>(buffer.get_data()), payload_length, mask, use_mask);
 	}
 
-	inline int receive_frame(WebSocket& web_socket, server_buffer_t& buffer, int& flags)
+	inline int receive_frame(WebSocket& web_socket, buffers::server_buffer_t& buffer, int& flags)
 	{
-		int n = receive_bytes(dynamic_cast<Poco::Net::WebSocketImpl*>(web_socket.impl()), buffer, 0);;
+		int n = receive_bytes(dynamic_cast<Poco::Net::WebSocketImpl*>(web_socket.impl()), buffer, 0);
 		flags = dynamic_cast<Poco::Net::WebSocketImpl*>(web_socket.impl())->frameFlags();
 		return n;
 	}
@@ -126,13 +126,8 @@ namespace flow::server
 			do
 			{
 				n = receive_frame(ws, buffer, flags);
-			    auto msg = reinterpret_cast<messages::message_base_request_t*>(buffer.get_data());	
-                 
-                /*
-                 * logger::notify(Poco::format("Frame received (length=%d, flags=0x%x).", n, unsigned(flags)));
-                 * logger::notify("VALUE:", std::string(buffer.get_data(), n));
-                 */
-				ws.sendFrame(buffer.get_data(), n, flags);
+				auto msg = reinterpret_cast<messages::message_base_request_t*>(buffer.get_data());
+				handlers::request_handlers[msg->type](ws, buffer);
 			} while (n > 0 && (flags & WebSocket::FRAME_OP_BITMASK) != WebSocket::FRAME_OP_CLOSE);
 			logger::notify<logger::Debug>("WebSocket connection closed.");
 		}

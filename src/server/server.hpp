@@ -5,6 +5,7 @@
 #ifndef WM_SERVER_HPP
 #define WM_SERVER_HPP
 
+#include "../buffer/buffer.hpp"
 #include "Poco/Format.h"
 #include "Poco/Net/HTTPRequestHandler.h"
 #include "Poco/Net/HTTPRequestHandlerFactory.h"
@@ -20,7 +21,6 @@
 #include "Poco/Util/OptionSet.h"
 #include "Poco/Util/ServerApplication.h"
 #include <logger/logger.hpp>
-#include "../buffer/buffer.hpp"
 #include <wm/flow_wm.hpp>
 
 using Poco::ThreadPool;
@@ -43,25 +43,22 @@ using Poco::Util::ServerApplication;
 
 namespace flow::server
 {
-	using server_buffer_t = buffers::buffer_t<char, int>;
 
-	class PageRequestHandler: public HTTPRequestHandler
+	class PageRequestHandler : public HTTPRequestHandler
 	{
 	public:
 		void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override;
 	};
 
-
-	class WebSocketRequestHandler: public HTTPRequestHandler
+	class WebSocketRequestHandler : public HTTPRequestHandler
 	{
 	public:
-        WebSocketRequestHandler();
+		WebSocketRequestHandler();
 		void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override;
+
 	private:
-		server_buffer_t buffer;
+		buffers::server_buffer_t buffer;
 	};
-
-
 
 	class RequestHandlerFactory : public HTTPRequestHandlerFactory
 	{
@@ -72,15 +69,18 @@ namespace flow::server
 	class flow_wm_server_t
 	{
 	public:
-		flow_wm_server_t(int port = 9600);
+		flow_wm_server_t(lib_wm::window_manager_t& wm, int port = 9600);
 		~flow_wm_server_t();
 
 		void run();
 		void stop();
 
+		inline const auto& get_server_data() { return server_data; }
+
 	private:
-		ServerSocket server_socket;
 		HTTPServer server;
+		server_data_t server_data;
+		ServerSocket server_socket;
 	};
 
 } // namespace flow::server

@@ -92,7 +92,8 @@ int main()
 {
 	logger::init();
 
-	flow::server::flow_wm_server_t server;
+	auto* wm = new lib_wm::window_manager_t(lib_wm::configs::get_custom_config(std::string(std::getenv("HOME")) += "/CLionProjects/libwm/config/default_config.json"), new custom_shell_t());
+	flow::server::flow_wm_server_t server(*wm);
 	server.run();
 
 	/*
@@ -102,6 +103,5 @@ int main()
 	 */
 
 
-	auto* wm = new lib_wm::window_manager_t(lib_wm::configs::get_custom_config(std::string(std::getenv("HOME")) += "/CLionProjects/libwm/config/default_config.json"), new custom_shell_t());
 	wm->run();
 }
