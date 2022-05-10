@@ -5,6 +5,7 @@
 #include "server.hpp"
 #include "../macro/macro.hpp"
 #include "../messages/messages.hpp"
+#include "wm/flow_wm.hpp"
 #define class struct
 #define private public
 #define protected public
@@ -19,7 +20,7 @@ namespace flow::server
 {
 
 	flow_wm_server_t::flow_wm_server_t(int port)
-		: server_socket(port), server(new RequestHandlerFactory(), server_socket, new HTTPServerParams)
+		: server_socket(port), server(new RequestHandlerFactory, server_socket, new HTTPServerParams)
 	{
 	}
 
@@ -39,6 +40,7 @@ namespace flow::server
 	{
 		server.stop();
 	}
+
 
 	HTTPRequestHandler* RequestHandlerFactory::createRequestHandler(const HTTPServerRequest& request)
 	{
@@ -124,8 +126,12 @@ namespace flow::server
 			do
 			{
 				n = receive_frame(ws, buffer, flags);
-				logger::notify(Poco::format("Frame received (length=%d, flags=0x%x).", n, unsigned(flags)));
-				logger::notify("VALUE:", ( char* ) buffer.get_data());
+			    auto msg = reinterpret_cast<messages::message_base_request_t*>(buffer.get_data());	
+                 
+                /*
+                 * logger::notify(Poco::format("Frame received (length=%d, flags=0x%x).", n, unsigned(flags)));
+                 * logger::notify("VALUE:", std::string(buffer.get_data(), n));
+                 */
 				ws.sendFrame(buffer.get_data(), n, flags);
 			} while (n > 0 && (flags & WebSocket::FRAME_OP_BITMASK) != WebSocket::FRAME_OP_CLOSE);
 			logger::notify<logger::Debug>("WebSocket connection closed.");

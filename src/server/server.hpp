@@ -21,6 +21,7 @@
 #include "Poco/Util/ServerApplication.h"
 #include <logger/logger.hpp>
 #include "../buffer/buffer.hpp"
+#include <wm/flow_wm.hpp>
 
 using Poco::ThreadPool;
 using Poco::Timestamp;
@@ -54,7 +55,7 @@ namespace flow::server
 	class WebSocketRequestHandler: public HTTPRequestHandler
 	{
 	public:
-		WebSocketRequestHandler();
+        WebSocketRequestHandler();
 		void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override;
 	private:
 		server_buffer_t buffer;
