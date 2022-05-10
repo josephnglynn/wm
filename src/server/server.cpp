@@ -21,7 +21,7 @@ namespace flow::server
 {
 
 	flow_wm_server_t::flow_wm_server_t(lib_wm::window_manager_t& wm, int port)
-		: server_socket(port), server(new RequestHandlerFactory, server_socket, new HTTPServerParams)
+		: server(new RequestHandlerFactory, server_socket, new HTTPServerParams), server_data(server_data_t()), server_socket(port)
 	{
 		handlers::init_handlers(wm, *this);
 	}
