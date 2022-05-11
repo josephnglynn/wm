@@ -69,7 +69,7 @@ namespace flow::server
 	class flow_wm_server_t
 	{
 	public:
-		flow_wm_server_t(lib_wm::window_manager_t& wm, int port = 9600);
+		flow_wm_server_t(lib_wm::window_manager_t& wm, server_data_t&& server_data, int port = 9600);
 		~flow_wm_server_t();
 
 		void run();

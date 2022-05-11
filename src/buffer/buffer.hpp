@@ -5,7 +5,7 @@
 #ifndef WM_BUFFER_HPP
 #define WM_BUFFER_HPP
 #include "../messages/messages.hpp"
-#include "src/server_data/server_data.hpp"
+#include "../server_data/server_data.hpp"
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -59,6 +59,7 @@ namespace flow::buffers
 			}
 			data_type* write_location_ptr = m_data + m_location;
 			std::memcpy(reinterpret_cast<void*>(write_location_ptr), data, size);
+			m_location = new_location;
 			return write_location_ptr;
 		}
 

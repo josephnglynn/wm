@@ -12,7 +12,6 @@ if get_option('buildtype').startswith('debug')
 endif
 
 src = [
-    'src/main.cpp',
     'src/server/server.cpp',
     'src/handlers/handlers.cpp',
     'src/server_data/server_data.cpp',
@@ -26,10 +25,13 @@ dep = [
     dependency('Poco', method: 'cmake', components: ['Net']),
     dependency('logger', fallback: ['logger', 'logger_dep']),
     dependency('libwm', fallback: ['libwm', 'libwm_dep']),
+    dependency('arg_parser', fallback: ['arg_parser', 'arg_parser_dep']),
 ]
 
 exe = executable(
     'flow_wm',
-    src,
+    src  + 'src/main.cpp',
     dependencies: dep,
 )
+
+subdir('utils')

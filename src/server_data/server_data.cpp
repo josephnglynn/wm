@@ -3,29 +3,34 @@
 //
 
 #include "server_data.hpp"
-#include <climits>
+#include "../buffer/buffer.hpp"
+#include "../deserialize/deserialize.hpp"
 #include <cstdlib>
-#include <unistd.h>
+#include <fstream>
 
 namespace flow::server
 {
 
-	inline uint64_t generate_uid() {
-		srand(time(nullptr));
-		return rand();
+	void server_data_t::write_to(const std::string& file_name) {
+		buffers::server_buffer_t buffer(sizeof(*this));
+		buffer.write(*this);
+
+		std::ofstream file(file_name, std::ofstream::trunc);
+		file.write(buffer.get_data(), buffer.get_location());
+		file.close();
 	}
 
-    server_data_t::server_data_t()
+	server_data_t get_server_data_from_file(const std::string& file_name)
 	{
-		uid = generate_uid();
-		char* hostname = static_cast<char*>(malloc(sizeof(char) * HOST_NAME_MAX));
-		gethostname(hostname, HOST_NAME_MAX);
-		machine_name = hostname;
+		std::ifstream file(file_name, std::ios::binary | std::ios::ate);
+		auto size = file.tellg();
+		file.seekg(0, std::ios::beg);
+
+		static buffers::server_buffer_t buffer(size); // NEEDS TO BE KEPT ALIVE
+		file.read(buffer.get_data(), size);
+
+		return serialization::deserialize<server_data_t>(buffer);
 	}
 
-    server_data_t::~server_data_t() 
-    {
-        free((void*)reinterpret_cast<const void*>(machine_name.data()));
-    }
 
 } // namespace flow::server

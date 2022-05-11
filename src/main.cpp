@@ -1,5 +1,3 @@
-#include "logger/logger.hpp"
-#include <thread>
 #define USE_HOOKS
 /*
 #define HOOK_LIST(H)                            \
@@ -12,6 +10,8 @@
 	H(button_event, xcb_button_press_event_t*)
 */
 #include "server/server.hpp"
+#include <logger/logger.hpp>
+#include <thread>
 #include <wm/flow_wm.hpp>
 
 class custom_shell_t : public lib_wm::shells::shell_t
@@ -91,9 +91,11 @@ private:
 int main()
 {
 	logger::init();
+	const auto wm_config_location = std::string(std::getenv("HOME")) += "/CLionProjects/libwm/config/default_config.json";
+	const auto server_data_location = std::string(std::getenv("HOME")) += "/.config/server_config_t";
 
-	auto* wm = new lib_wm::window_manager_t(lib_wm::configs::get_custom_config(std::string(std::getenv("HOME")) += "/CLionProjects/libwm/config/default_config.json"), new custom_shell_t());
-	flow::server::flow_wm_server_t server(*wm);
+	auto* wm = new lib_wm::window_manager_t(lib_wm::configs::get_custom_config(wm_config_location), new custom_shell_t());
+	flow::server::flow_wm_server_t server(*wm, flow::server::get_server_data_from_file(server_data_location));
 	server.run();
 
 	/*
