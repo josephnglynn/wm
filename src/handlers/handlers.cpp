@@ -22,6 +22,12 @@ namespace flow::handlers
 		ws.sendFrame(data.data, data.size, Poco::Net::WebSocket::SendFlags::FRAME_BINARY);
 	}
 
+	void  hello_world_request_handler(Poco::Net::WebSocket& ws, flow::buffers::server_buffer_t& buffer)
+	{
+		static const char str[] = "Hello world!";
+		ws.sendFrame(str, sizeof(str) - 1, Poco::Net::WebSocket::SendFlags::FRAME_TEXT);
+	}
+
 #define INIT_REQ_HANDLER(name, ...) request_handlers[messages::name##_request] = name##_request_handler;
 
 	void init_handlers(lib_wm::window_manager_t& p_wm, flow::server::flow_wm_server_t& p_server)

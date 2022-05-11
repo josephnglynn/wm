@@ -91,6 +91,7 @@ private:
 int main()
 {
 	logger::init();
+
 	const auto wm_config_location = std::string(std::getenv("HOME")) += "/CLionProjects/libwm/config/default_config.json";
 	const auto server_data_location = std::string(std::getenv("HOME")) += "/.config/server_config_t";
 
@@ -103,7 +104,8 @@ int main()
 	 * using namespace std::chrono_literals;
 	 * std::this_thread::sleep_for(1000min);
 	 */
-
+	using namespace std::chrono_literals;
+	std::this_thread::sleep_for(1000min);
 
 	wm->run();
 }

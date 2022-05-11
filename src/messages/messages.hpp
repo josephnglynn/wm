@@ -4,7 +4,8 @@
 
 
 #define MESSAGE_TYPES_REQ(H) \
-	H(sync_wm_servers, )
+	H(sync_wm_servers, )        \
+	H(hello_world, )
 
 #define MESSAGE_TYPES_RES(H) \
 	H(sync_wm_servers, server::server_data_t server_data;)
