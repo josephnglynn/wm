@@ -5,6 +5,7 @@
 #ifndef WM_BUFFER_HPP
 #define WM_BUFFER_HPP
 #include "../messages/messages.hpp"
+#include "src/server_data/server_data.hpp"
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -106,13 +107,25 @@ namespace flow::buffers
 		return {};
 	}
 
+    template<>
+    template<>
+    inline buffer_write_result_t<char, int> buffer_t<char, int>::write(server::server_location_t& t) 
+    {
+        write(&t, sizeof(t));
+        /*
+         * RETURN NOT IMPORTANT
+         */
+        return {};
+    }
+
 	template <>
 	template <>
 	inline buffer_write_result_t<char, int> buffer_t<char, int>::write(server::server_data_t& t)
 	{
 		WRITE_MEMBER(uid);
 		WRITE_MEMBER_COMPLEX(machine_name);
-		/*
+	    WRITE_MEMBER_COMPLEX(location);	
+        /*
 		 * RETURN NOT IMPORTANT
 		 */
 		return {};
