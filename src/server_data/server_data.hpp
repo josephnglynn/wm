@@ -12,6 +12,7 @@ namespace flow::server
 	struct server_data_t
 	{
 		server_data_t();
+        ~server_data_t();
 
 		uint64_t uid;
 		std::string_view machine_name;
