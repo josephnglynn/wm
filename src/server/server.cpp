@@ -88,12 +88,11 @@ namespace flow::server
 			threads.emplace_back(func, interval * (i - 1), interval * i);
 		}
 
-		func(244, 255);
 		threads.emplace_back(func, (thread_count - 1) * interval, 255);
 
 		for (auto& t : threads)
 		{
-			t.join();
+			if (t.joinable()) t.join();
 		}
 	}
 
