@@ -14,13 +14,15 @@
 #undef private
 #undef protected
 #include "../handlers/handlers.hpp"
+#include <iomanip>
 #include <logger/logger.hpp>
+#include <mutex>
 #include <thread>
 
 namespace flow::server
 {
 
-	flow_wm_server_t::flow_wm_server_t(lib_wm::window_manager_t& wm, server_data_t&& server_data, int port)
+	flow_wm_server_t::flow_wm_server_t(lib_wm::WindowManager& wm, server_data_t&& server_data, int port)
 		: server_port(port),
 		  server_socket(port),
 		  server(new RequestHandlerFactory, server_socket, new HTTPServerParams),
@@ -37,7 +39,6 @@ namespace flow::server
 	void flow_wm_server_t::run()
 	{
 		server.start();
-		scan();
 	}
 
 	void flow_wm_server_t::stop()
@@ -45,56 +46,6 @@ namespace flow::server
 		server.stop();
 	}
 
-	void flow_wm_server_t::scan()
-	{
-		auto port_str = std::to_string(server_port);
-
-		unsigned int thread_count = std::thread::hardware_concurrency();
-		std::vector<std::thread> threads = std::vector<std::thread>(thread_count);
-
-		auto func = [&](int lower, int upper) {
-			for (auto a = lower; a < upper; ++a)
-			{
-
-				auto a_str = std::to_string(a);
-				for (auto b = 0; b < 255; ++b)
-				{
-					auto b_str = std::to_string(b);
-					for (auto c = 0; c < 255; ++c)
-					{
-						auto uri = "192." + a_str += "." + b_str += "." + std::to_string(c) += ":" + port_str;
-						HTTPClientSession cs(uri, server_port);
-						HTTPRequest request(HTTPRequest::HTTP_GET, "/?encoding=text", HTTPMessage::HTTP_1_1);
-						HTTPResponse response;
-
-						try
-						{
-							WebSocket socket = WebSocket(cs, request, response);
-							messages::message_sync_wm_servers_request_t msg;
-							socket.sendFrame(&msg, sizeof(msg), WebSocket::FRAME_BINARY);
-						}
-						catch (std::exception& e)
-						{
-							//logger::notify("ERROR");
-						}
-					}
-				}
-			}
-		};
-
-		auto interval = 255 / thread_count;
-		for (unsigned int i = 1; i < thread_count; ++i)
-		{
-			threads.emplace_back(func, interval * (i - 1), interval * i);
-		}
-
-		threads.emplace_back(func, (thread_count - 1) * interval, 255);
-
-		for (auto& t : threads)
-		{
-			if (t.joinable()) t.join();
-		}
-	}
 
 	HTTPRequestHandler* RequestHandlerFactory::createRequestHandler(const HTTPServerRequest& request)
 	{

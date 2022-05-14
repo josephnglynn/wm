@@ -7,7 +7,7 @@
 
 namespace flow::handlers
 {
-	lib_wm::window_manager_t* wm;
+	lib_wm::WindowManager* wm;
 	flow::server::flow_wm_server_t* server;
 	std::array<request_handler, messages::_number_of_request_types> request_handlers;
 
@@ -30,7 +30,7 @@ namespace flow::handlers
 
 #define INIT_REQ_HANDLER(name, ...) request_handlers[messages::name##_request] = name##_request_handler;
 
-	void init_handlers(lib_wm::window_manager_t& p_wm, flow::server::flow_wm_server_t& p_server)
+	void init_handlers(lib_wm::WindowManager& p_wm, flow::server::flow_wm_server_t& p_server)
 	{
 		static bool inited = false;
 		if (inited) return;

@@ -14,15 +14,15 @@
 #include <thread>
 #include <wm/flow_wm.hpp>
 
-class custom_shell_t : public lib_wm::shells::shell_t
+class custom_shell_t : public lib_wm::shells::Shell
 {
 public:
 	custom_shell_t() = default;
 	~custom_shell_t() override = default;
 
-	void init(lib_wm::window_manager_t* p_wm) override { this->wm = p_wm; }
+	void init(lib_wm::WindowManager* p_wm) override { this->wm = p_wm; }
 
-	lib_wm::shells::shell_info_t get_shell_info() override
+	lib_wm::shells::ShellInfo get_shell_info() override
 	{
 		return {
 			"Example Shell",
@@ -33,7 +33,7 @@ public:
 	}
 
 	xcb_window_t create_back_window() override { return 0; }
-	lib_wm::shells::frame_info_t create_frame_window(xcb_window_t client_window) override { return {0, lib_wm::shapes::rectangle_t::zero()}; }
+	lib_wm::shells::FrameInfo create_frame_window(xcb_window_t client_window) override { return {0, lib_wm::shapes::Rectangle::zero()}; }
 	[[nodiscard]] const std::vector<std::string>& get_tag_names() const override { return tag_names; }
 
 	void handle_back_window_event(xcb_window_t back_window, xcb_generic_event_t* event) override {}
@@ -48,7 +48,7 @@ public:
 	[[nodiscard]] std::vector<lib_wm::keybindings::global_button_press_bind_t>& get_global_button_binds() override { return gbb; }
 
 private:
-	lib_wm::window_manager_t* wm = nullptr;
+	lib_wm::WindowManager* wm = nullptr;
 	const std::vector<std::string> tag_names = {"TAG-1", "TAG-2", "TAG-3", "TAG-4", "TAG-5", "TAG-6", "TAG-7", "TAG-8", "TAG-9", "TAG-10"};
 
 	std::vector<lib_wm::keybindings::client_key_press_bind_t> ckb = {
@@ -95,7 +95,7 @@ int main()
 	const auto wm_config_location = std::string(std::getenv("HOME")) += "/CLionProjects/libwm/config/default_config.json";
 	const auto server_data_location = std::string(std::getenv("HOME")) += "/.config/server_config_t";
 
-	auto* wm = new lib_wm::window_manager_t(lib_wm::configs::get_custom_config(wm_config_location), new custom_shell_t());
+	auto* wm = new lib_wm::WindowManager(lib_wm::configs::get_custom_config(wm_config_location), new custom_shell_t());
 	flow::server::flow_wm_server_t server(*wm, flow::server::get_server_data_from_file(server_data_location));
 	server.run();
 
