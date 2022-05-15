@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"os/user"
+	"path/filepath"
 	"strconv"
 	"sync"
 
@@ -17,6 +19,7 @@ type MSG struct {
 }
 
 var wg sync.WaitGroup
+var m sync.Mutex
 var ipAddresses []url.URL
 
 func check(url url.URL) {
@@ -54,7 +57,9 @@ func check(url url.URL) {
 				}
 
 				if good {
+					m.Lock()
 					ipAddresses = append(ipAddresses, url)
+					m.Unlock()
 				}
 			}
 
@@ -97,7 +102,7 @@ func main() {
 			wg.Add(1)
 			host := "192.168." + strconv.Itoa(b) + "." + strconv.Itoa(c) + ":16812"
 			u := url.URL{Scheme: "ws", Host: host, Path: "/ws"}
-			log.Printf("connecting to %s", u.String())
+			// log.Printf("connecting to %s", u.String())
 			go check(u)
 		}
 	}
@@ -109,4 +114,19 @@ func main() {
 	for i := 0; i < len(ipAddresses); i++ {
 		log.Println(ipAddresses[i])
 	}
+
+	usr, _ := user.Current()
+	os.MkdirAll(filepath.Join(usr.HomeDir, ".config/flow_wm"), os.ModePerm)
+	file, err := os.OpenFile(filepath.Join(usr.HomeDir, ".config/flow_wm/ip_addresses"), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
+	if err != nil {
+		log.Println("ERROR OPENING FILE", err.Error())
+		return
+	}
+
+	for i := 0; i < len(ipAddresses); i++ {
+		file.WriteString(ipAddresses[i].Host + "\n")
+	}
+
+	file.Sync()
+	file.Close()
 }
