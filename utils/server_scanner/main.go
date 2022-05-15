@@ -17,7 +17,7 @@ type MSG struct {
 }
 
 var wg sync.WaitGroup
-var ip_addresses []url.URL
+var ipAddresses []url.URL
 
 func check(url url.URL) {
 	defer wg.Done()
@@ -54,7 +54,7 @@ func check(url url.URL) {
 				}
 
 				if good {
-					ip_addresses = append(ip_addresses, url)
+					ipAddresses = append(ipAddresses, url)
 				}
 			}
 
@@ -92,21 +92,21 @@ func check(url url.URL) {
 }
 
 func main() {
-
-	for a := 0; a < 256; a++ {
-		for b := 0; b < 256; b++ {
-			for c := 0; c < 256; c++ {
-				wg.Add(1)
-				host := "192." + strconv.Itoa(a) + "." + strconv.Itoa(b) + "." + strconv.Itoa(c) + ":9600"
-				u := url.URL{Scheme: "ws", Host: host, Path: "/ws"}
-				log.Printf("connecting to %s", u.String())
-				go check(u)
-			}
+	for b := 0; b < 256; b++ {
+		for c := 0; c < 256; c++ {
+			wg.Add(1)
+			host := "192.168." + strconv.Itoa(b) + "." + strconv.Itoa(c) + ":9600"
+			u := url.URL{Scheme: "ws", Host: host, Path: "/ws"}
+			log.Printf("connecting to %s", u.String())
+			go check(u)
 		}
 	}
 
 	wg.Wait()
 
-	log.Println("TOTAL NUM OF SUCCESSFUL CONECTIONS: ", len(ip_addresses))
+	log.Println("TOTAL NUM OF SUCCESSFUL CONECTIONS: ", len(ipAddresses))
 
+	for i := 0; i < len(ipAddresses); i++ {
+		log.Println(ipAddresses[i])
+	}
 }
