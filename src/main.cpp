@@ -1,3 +1,5 @@
+#include <X11/Xlib.h>
+#include <cstdlib>
 #define USE_HOOKS
 /*
 #define HOOK_LIST(H)                            \
@@ -98,7 +100,10 @@ int main()
 	std::filesystem::create_directories(home + "/config/flow_wm");
 
 	auto* wm = new lib_wm::WindowManager(lib_wm::configs::get_custom_config(wm_config_location), new custom_shell_t());
-	flow::server::flow_wm_server_t server(*wm, flow::server::get_server_data_from_file(server_data_location));
+
+	char* name = XDisplayName(nullptr);
+
+	flow::server::flow_wm_server_t server(*wm, flow::server::get_server_data_from_file(server_data_location), 16812 + atoi(name));
 	server.run();
 
 	/*
@@ -108,4 +113,6 @@ int main()
 	 */
 
 	wm->run();
+
+	free(name);
 }

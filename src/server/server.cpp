@@ -59,7 +59,7 @@ namespace flow::server
 			{
 				char address_buf[INET6_ADDRSTRLEN];
 				inet_ntop(AF_INET6, &(( struct sockaddr_in6* ) i->ifa_addr)->sin6_addr, address_buf, INET6_ADDRSTRLEN);
-				logger::warn("UMM, why ipv6?");
+				logger::warn<logger::Debug>("UMM, why ipv6?");
 				addresses.emplace_back(address_buf);
 			}
 		}
@@ -71,6 +71,7 @@ namespace flow::server
 	void flow_wm_server_t::run()
 	{
 		server.start();
+		logger::notify<logger::Debug>("STARTING SERVER ON PORT:", server_port);
 
 		const auto home = std::string(std::getenv("HOME"));
 		std::ifstream ips_file(home + "/.config/flow_wm/ip_addresses");
@@ -108,7 +109,7 @@ namespace flow::server
 				}
 			});
 
-			continue_loop:;
+		continue_loop:;
 		}
 	}
 
