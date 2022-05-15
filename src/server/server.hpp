@@ -25,7 +25,9 @@
 #include "Poco/Util/OptionSet.h"
 #include "Poco/Util/ServerApplication.h"
 #include <logger/logger.hpp>
+#include <vector>
 #include <wm/flow_wm.hpp>
+#include <thread>
 
 using Poco::ThreadPool;
 using Poco::Timestamp;
@@ -89,6 +91,8 @@ namespace flow::server
 		ServerSocket server_socket;
 		HTTPServer server;
 		server_data_t server_data;
+		std::vector<std::string> ips;
+		std::vector<std::thread> client_threads;
 	};
 
 } // namespace flow::server

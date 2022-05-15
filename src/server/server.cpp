@@ -6,6 +6,10 @@
 #include "../macro/macro.hpp"
 #include "../messages/messages.hpp"
 #include "wm/flow_wm.hpp"
+#include <Poco/Net/WebSocket.h>
+#include <cstdlib>
+#include <exception>
+#include <string>
 #define class struct
 #define private public
 #define protected public
@@ -14,9 +18,9 @@
 #undef private
 #undef protected
 #include "../handlers/handlers.hpp"
-#include <iomanip>
+#include <fstream>
+#include <ifaddrs.h>
 #include <logger/logger.hpp>
-#include <mutex>
 #include <thread>
 
 namespace flow::server
@@ -36,9 +40,76 @@ namespace flow::server
 		stop();
 	}
 
+	std::vector<std::string> get_all_ips()
+	{
+		ifaddrs* if_address = nullptr;
+		getifaddrs(&if_address);
+
+		std::vector<std::string> addresses;
+
+		for (ifaddrs* i = if_address; i != nullptr; i = i->ifa_next)
+		{
+			if (i->ifa_addr->sa_family == AF_INET)
+			{
+				char address_buf[INET_ADDRSTRLEN];
+				inet_ntop(AF_INET, &(( sockaddr_in* ) i->ifa_addr)->sin_addr, address_buf, INET_ADDRSTRLEN);
+				addresses.emplace_back(address_buf);
+			}
+			else if (i->ifa_addr->sa_family == AF_INET6)
+			{
+				char address_buf[INET6_ADDRSTRLEN];
+				inet_ntop(AF_INET6, &(( struct sockaddr_in6* ) i->ifa_addr)->sin6_addr, address_buf, INET6_ADDRSTRLEN);
+				logger::warn("UMM, why ipv6?");
+				addresses.emplace_back(address_buf);
+			}
+		}
+
+		if (if_address != nullptr) freeifaddrs(if_address);
+		return addresses;
+	}
+
 	void flow_wm_server_t::run()
 	{
 		server.start();
+
+		const auto home = std::string(std::getenv("HOME"));
+		std::ifstream ips_file(home + "/.config/flow_wm/ip_addresses");
+		if (!ips_file.good()) return;
+
+		auto current_ip = get_all_ips();
+		std::string line;
+		while (std::getline(ips_file, line))
+		{
+			for (const auto& ip : current_ip)
+			{
+				if (ip == line) goto continue_loop;
+			}
+
+			for (const auto& ip : ips)
+			{
+				if (ip == line) goto continue_loop;
+			}
+
+			ips.push_back(line);
+			client_threads.emplace_back([&]() {
+				try
+				{
+					HTTPClientSession cs(line, server_port);
+					HTTPRequest request(HTTPRequest::HTTP_GET, "/?encoding=text", HTTPMessage::HTTP_1_1);
+					HTTPResponse response;
+
+					WebSocket socket = WebSocket(cs, request, response);
+					messages::message_sync_wm_servers_request_t msg;
+					socket.sendFrame(&msg, sizeof(msg), WebSocket::FRAME_BINARY);
+				}
+				catch (std::exception& e)
+				{
+					logger::error(e.what());
+				}
+			});
+
+			continue_loop:;
+		}
 	}
 
 	void flow_wm_server_t::stop()

@@ -148,7 +148,7 @@ func main() {
 	}
 
 	for i := 0; i < len(ipAddresses); i++ {
-		file.WriteString(ipAddresses[i].Host + "\n")
+		file.WriteString(ipAddresses[i].Hostname() + "\n")
 	}
 
 	file.Sync()
