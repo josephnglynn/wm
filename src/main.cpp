@@ -10,6 +10,7 @@
 	H(button_event, xcb_button_press_event_t*)
 */
 #include "server/server.hpp"
+#include <filesystem>
 #include <logger/logger.hpp>
 #include <thread>
 #include <wm/flow_wm.hpp>
@@ -91,8 +92,10 @@ int main()
 {
 	logger::init();
 
-	const auto wm_config_location = std::string(std::getenv("HOME")) += "/CLionProjects/libwm/config/default_config.json";
-	const auto server_data_location = std::string(std::getenv("HOME")) += "/.config/server_config_t";
+	const auto home = std::string(std::getenv("HOME"));
+	const auto wm_config_location = home + "/CLionProjects/libwm/config/default_config.json";
+	const auto server_data_location = home + "/.config/flow_wm/server_config";
+	std::filesystem::create_directories(home + "/config/flow_wm");
 
 	auto* wm = new lib_wm::WindowManager(lib_wm::configs::get_custom_config(wm_config_location), new custom_shell_t());
 	flow::server::flow_wm_server_t server(*wm, flow::server::get_server_data_from_file(server_data_location));

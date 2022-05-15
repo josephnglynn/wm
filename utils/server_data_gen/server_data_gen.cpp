@@ -3,11 +3,14 @@
 //
 #include "../src/server/server.hpp"
 #include <arg_parser/parser.hpp>
+#include <filesystem>
 #include <string>
 
 int main(int argc, char* argv[])
 {
-	const auto server_data_location = std::string(std::getenv("HOME")) += "/.config/server_config_t";
+	const auto home = std::string(std::getenv("HOME"));
+	const auto server_data_location = home + "/.config/flow_wm/server_config";
+	std::filesystem::create_directories(home + "/.config/flow_wm");
 	flow::server::server_data_t data = flow::server::get_server_data_from_file(server_data_location);
 
 	std::string machine_name;
