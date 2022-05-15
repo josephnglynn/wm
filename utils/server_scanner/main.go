@@ -95,7 +95,7 @@ func main() {
 	for b := 0; b < 256; b++ {
 		for c := 0; c < 256; c++ {
 			wg.Add(1)
-			host := "192.168." + strconv.Itoa(b) + "." + strconv.Itoa(c) + ":9600"
+			host := "192.168." + strconv.Itoa(b) + "." + strconv.Itoa(c) + ":16812"
 			u := url.URL{Scheme: "ws", Host: host, Path: "/ws"}
 			log.Printf("connecting to %s", u.String())
 			go check(u)
