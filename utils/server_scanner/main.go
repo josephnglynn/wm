@@ -107,6 +107,30 @@ func main() {
 		}
 	}
 
+	for a := 16; a < 32; a++ {
+		for b := 0; b < 256; b++ {
+			for c := 0; c < 256; c++ {
+				wg.Add(1)
+				host := "172." + strconv.Itoa(a) + "." + strconv.Itoa(b) + "." + strconv.Itoa(c) + ":16812"
+				u := url.URL{Scheme: "ws", Host: host, Path: "/ws"}
+				// log.Printf("connecting to %s", u.String())
+				go check(u)
+			}
+		}
+	}
+
+	for a := 0; a < 256; a++ {
+		for b := 0; b < 256; b++ {
+			for c := 0; c < 256; c++ {
+				wg.Add(1)
+				host := "10." + strconv.Itoa(a) + "." + strconv.Itoa(b) + "." + strconv.Itoa(c) + ":16812"
+				u := url.URL{Scheme: "ws", Host: host, Path: "/ws"}
+				// log.Printf("connecting to %s", u.String())
+				go check(u)
+			}
+		}
+	}
+
 	wg.Wait()
 
 	log.Println("TOTAL NUM OF SUCCESSFUL CONECTIONS: ", len(ipAddresses))
