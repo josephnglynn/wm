@@ -46,7 +46,6 @@ namespace flow::server
 		server.stop();
 	}
 
-
 	HTTPRequestHandler* RequestHandlerFactory::createRequestHandler(const HTTPServerRequest& request)
 	{
 		if (request.find("Upgrade") != request.end() && Poco::icompare(request["Upgrade"], "websocket") == 0)
@@ -134,6 +133,13 @@ namespace flow::server
 			{
 				n = receive_frame(ws, buffer, flags);
 				auto msg = reinterpret_cast<messages::message_base_request_t*>(buffer.get_data());
+#ifdef DEBUG
+				if (msg->type > messages::_number_of_request_types)
+				{
+					logger::error("How did we get a message with invalid type?");
+					continue;
+				}
+#endif
 				handlers::request_handlers[msg->type](ws, buffer);
 			} while (n > 0 && (flags & WebSocket::FRAME_OP_BITMASK) != WebSocket::FRAME_OP_CLOSE);
 			logger::notify<logger::Debug>("WebSocket connection closed.");
