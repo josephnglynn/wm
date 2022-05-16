@@ -97,7 +97,7 @@ int main()
 	const auto home = std::string(std::getenv("HOME"));
 	const auto wm_config_location = home + "/.config/flow_wm/default_config.json";
 	const auto server_data_location = home + "/.config/flow_wm/server_config";
-	std::filesystem::create_directories(home + "/config/flow_wm");
+	std::filesystem::create_directories(home + "/.config/flow_wm");
 
 	auto* wm = new lib_wm::WindowManager(lib_wm::configs::get_custom_config(wm_config_location), new custom_shell_t());
 
