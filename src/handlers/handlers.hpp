@@ -14,11 +14,16 @@
 namespace flow::handlers
 {
 	using request_handler = void (*)(Poco::Net::WebSocket&, flow::buffers::server_buffer_t& buffer);
+	using response_handler = void(*)(server::WebSocketClient&, flow::buffers::server_buffer_t& buffer);
 #define PLACE_HANDLERS_REQ(name, ...) void name##_request_handler(Poco::Net::WebSocket&, flow::buffers::server_buffer_t& buffer);
+#define PLACE_HANDLERS_RES(name, ...) void name##_response_handler(server::WebSocketClient&, flow::buffers::server_buffer_t& buffer);
 	MESSAGE_TYPES_REQ(PLACE_HANDLERS_REQ)
+	MESSAGE_TYPES_RES(PLACE_HANDLERS_RES)
 #undef PLACE_HANDLERS_REQ
+#undef PLACE_HANDLERS_RES
 
 	extern std::array<request_handler, messages::_number_of_request_types> request_handlers;
+	extern std::array<response_handler, messages::_number_of_response_types> response_handlers;
 
 	void init_handlers(lib_wm::WindowManager& p_wm, flow::server::flow_wm_server_t& p_server);
 } // namespace flow::handlers

@@ -10,7 +10,7 @@ namespace flow::handlers
 	lib_wm::WindowManager* wm;
 	flow::server::flow_wm_server_t* server;
 	std::array<request_handler, messages::_number_of_request_types> request_handlers;
-
+	std::array<response_handler, messages::_number_of_response_types> response_handlers;
 
 	void sync_wm_servers_request_handler(Poco::Net::WebSocket& ws, flow::buffers::server_buffer_t& buffer)
 	{
@@ -22,13 +22,20 @@ namespace flow::handlers
 		ws.sendFrame(data.data, data.size, Poco::Net::WebSocket::SendFlags::FRAME_BINARY);
 	}
 
-	void  hello_world_request_handler(Poco::Net::WebSocket& ws, flow::buffers::server_buffer_t& buffer)
+	void hello_world_request_handler(Poco::Net::WebSocket& ws, flow::buffers::server_buffer_t& buffer)
 	{
 		static const char str[] = "Hello world!";
 		ws.sendFrame(str, sizeof(str) - 1, Poco::Net::WebSocket::SendFlags::FRAME_TEXT);
 	}
 
+	void sync_wm_servers_response_handler(server::WebSocketClient& client, flow::buffers::server_buffer_t& buffer)
+	{
+		messages::message_sync_wm_servers_response_t response = serialization::deserialize<messages::message_sync_wm_servers_response_t>(buffer);
+
+	}
+
 #define INIT_REQ_HANDLER(name, ...) request_handlers[messages::name##_request] = name##_request_handler;
+#define INIT_RES_HANDLER(name, ...) response_handlers[messages::name##_response] = name##_response_handler;
 
 	void init_handlers(lib_wm::WindowManager& p_wm, flow::server::flow_wm_server_t& p_server)
 	{
@@ -41,6 +48,7 @@ namespace flow::handlers
 		server = &p_server;
 		request_handlers = {};
 		MESSAGE_TYPES_REQ(INIT_REQ_HANDLER)
+		MESSAGE_TYPES_RES(INIT_RES_HANDLER)
 	}
 #undef INIT_REQ_HANDLER
 } // namespace flow::handlers

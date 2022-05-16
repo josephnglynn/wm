@@ -24,10 +24,12 @@
 #include "Poco/Util/Option.h"
 #include "Poco/Util/OptionSet.h"
 #include "Poco/Util/ServerApplication.h"
+#include <functional>
 #include <logger/logger.hpp>
+#include <mutex>
+#include <thread>
 #include <vector>
 #include <wm/flow_wm.hpp>
-#include <thread>
 
 using Poco::ThreadPool;
 using Poco::Timestamp;
@@ -75,6 +77,14 @@ namespace flow::server
 		HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request) override;
 	};
 
+	struct WebSocketClient
+	{
+		WebSocketClient(std::function<void(WebSocketClient*)> func) : thread(std::thread(func, this)) {}
+		std::mutex mutex;
+		WebSocket* socket;
+		std::thread thread;
+	};
+
 	class flow_wm_server_t
 	{
 	public:
@@ -92,7 +102,7 @@ namespace flow::server
 		HTTPServer server;
 		server_data_t server_data;
 		std::vector<std::string> ips;
-		std::vector<std::thread> client_threads;
+		std::vector<WebSocketClient*> client_threads;
 	};
 
 } // namespace flow::server

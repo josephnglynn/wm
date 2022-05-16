@@ -68,6 +68,24 @@ namespace flow::server
 		return addresses;
 	}
 
+	inline int receive_bytes(Poco::Net::WebSocketImpl* impl, buffers::server_buffer_t& buffer, int)
+	{
+		char mask[4];
+		bool use_mask;
+		impl->_frameFlags = 0;
+		int payload_length = impl->receiveHeader(mask, use_mask);
+		if (payload_length <= 0) return payload_length;
+		buffer.resize(payload_length);
+		return impl->receivePayload(reinterpret_cast<char*>(buffer.get_data()), payload_length, mask, use_mask);
+	}
+
+	inline int receive_frame(WebSocket& web_socket, buffers::server_buffer_t& buffer, int& flags)
+	{
+		int n = receive_bytes(dynamic_cast<Poco::Net::WebSocketImpl*>(web_socket.impl()), buffer, 0);
+		flags = dynamic_cast<Poco::Net::WebSocketImpl*>(web_socket.impl())->frameFlags();
+		return n;
+	}
+
 	void flow_wm_server_t::run()
 	{
 		server.start();
@@ -92,22 +110,48 @@ namespace flow::server
 			}
 
 			ips.push_back(line);
-			client_threads.emplace_back([&]() {
+			client_threads.emplace_back(new WebSocketClient([&](WebSocketClient* client) {
 				try
 				{
 					HTTPClientSession cs(line, server_port);
 					HTTPRequest request(HTTPRequest::HTTP_GET, "/?encoding=text", HTTPMessage::HTTP_1_1);
 					HTTPResponse response;
 
-					WebSocket socket = WebSocket(cs, request, response);
-					messages::message_sync_wm_servers_request_t msg;
-					socket.sendFrame(&msg, sizeof(msg), WebSocket::FRAME_BINARY);
+					{
+						std::lock_guard<std::mutex> lock(client->mutex);
+						client->socket = new WebSocket(cs, request, response);
+						messages::message_sync_wm_servers_request_t msg;
+						client->socket->sendFrame(&msg, sizeof(msg), WebSocket::FRAME_BINARY);
+					}
+
+					logger::notify<logger::Debug>("WebSocket connection established.");
+					buffers::server_buffer_t buffer = buffers::server_buffer_t(1024);
+					int n, flags;
+					do
+					{
+						client->mutex.lock();
+						n = receive_frame(*client->socket, buffer, flags);
+						client->mutex.unlock();
+
+						auto msg = reinterpret_cast<messages::message_base_request_t*>(buffer.get_data());
+#ifdef DEBUG
+						if (msg->type > messages::_number_of_request_types)
+						{
+							logger::error("How did we get a message with invalid type?");
+							continue;
+						}
+#endif
+						handlers::response_handlers[msg->type](*client, buffer);
+					} while (n > 0 && (flags & WebSocket::FRAME_OP_BITMASK) != WebSocket::FRAME_OP_CLOSE);
+					logger::notify<logger::Debug>("WebSocket connection closed.");
 				}
 				catch (std::exception& e)
 				{
 					logger::error(e.what());
 				}
-			});
+
+				client->socket = nullptr;
+			}));
 
 		continue_loop:;
 		}
@@ -174,24 +218,6 @@ namespace flow::server
 		ostr << "</body>";
 		ostr << "</html>";
 #endif
-	}
-
-	inline int receive_bytes(Poco::Net::WebSocketImpl* impl, buffers::server_buffer_t& buffer, int)
-	{
-		char mask[4];
-		bool use_mask;
-		impl->_frameFlags = 0;
-		int payload_length = impl->receiveHeader(mask, use_mask);
-		if (payload_length <= 0) return payload_length;
-		buffer.resize(payload_length);
-		return impl->receivePayload(reinterpret_cast<char*>(buffer.get_data()), payload_length, mask, use_mask);
-	}
-
-	inline int receive_frame(WebSocket& web_socket, buffers::server_buffer_t& buffer, int& flags)
-	{
-		int n = receive_bytes(dynamic_cast<Poco::Net::WebSocketImpl*>(web_socket.impl()), buffer, 0);
-		flags = dynamic_cast<Poco::Net::WebSocketImpl*>(web_socket.impl())->frameFlags();
-		return n;
 	}
 
 	void WebSocketRequestHandler::handleRequest(HTTPServerRequest& request, HTTPServerResponse& response)

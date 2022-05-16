@@ -38,4 +38,6 @@ int main(int argc, char* argv[])
 
 	data.machine_name = machine_name;
 	data.write_to(server_data_location);
+
+	return 0;
 }
