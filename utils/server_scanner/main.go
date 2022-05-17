@@ -5,12 +5,11 @@ import (
 	"log"
 	"net/url"
 	"os"
-	"os/signal"
 	"os/user"
 	"path/filepath"
 	"strconv"
 	"sync"
-
+    "flag"
 	"github.com/gorilla/websocket"
 )
 
@@ -33,8 +32,6 @@ func check(url url.URL) {
 
 	done := make(chan struct{})
 
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt)
 
 	go func() {
 		defer close(done)
@@ -68,9 +65,12 @@ func check(url url.URL) {
 
 	}()
 
-	b := make([]byte, 8)
-	binary.LittleEndian.PutUint32(b, 0)
-	err = c.WriteMessage(websocket.BinaryMessage, b)
+
+    {
+    	b := make([]byte, 8)
+    	binary.LittleEndian.PutUint32(b, 0)
+    	err = c.WriteMessage(websocket.BinaryMessage, b)
+    }
 
 	if err != nil {
 		return
@@ -80,56 +80,72 @@ func check(url url.URL) {
 		select {
 		case <-done:
 			return
-		case <-interrupt:
-			log.Println("interrupt")
 
-			err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			if err != nil {
-				log.Println("write close:", err)
-				return
-			}
-			select {
-			case <-done:
-			}
-			return
 		}
 	}
 }
 
-func main() {
+func scan192() {
 	for b := 0; b < 256; b++ {
 		for c := 0; c < 256; c++ {
 			wg.Add(1)
 			host := "192.168." + strconv.Itoa(b) + "." + strconv.Itoa(c) + ":16812"
 			u := url.URL{Scheme: "ws", Host: host, Path: "/ws"}
-			// log.Printf("connecting to %s", u.String())
+			//log.Printf("connecting to %s", u.String())
 			go check(u)
 		}
 	}
+	wg.Wait()
+}
 
+func scan172() {
 	for a := 16; a < 32; a++ {
 		for b := 0; b < 256; b++ {
 			for c := 0; c < 256; c++ {
 				wg.Add(1)
 				host := "172." + strconv.Itoa(a) + "." + strconv.Itoa(b) + "." + strconv.Itoa(c) + ":16812"
 				u := url.URL{Scheme: "ws", Host: host, Path: "/ws"}
-				// log.Printf("connecting to %s", u.String())
+				//log.Printf("connecting to %s", u.String())
 				go check(u)
 			}
 		}
+		wg.Wait()
 	}
+}
 
+func scan10() {
 	for a := 0; a < 256; a++ {
 		for b := 0; b < 256; b++ {
 			for c := 0; c < 256; c++ {
 				wg.Add(1)
 				host := "10." + strconv.Itoa(a) + "." + strconv.Itoa(b) + "." + strconv.Itoa(c) + ":16812"
 				u := url.URL{Scheme: "ws", Host: host, Path: "/ws"}
-				// log.Printf("connecting to %s", u.String())
+				//log.Printf("connecting to %s", u.String())
 				go check(u)
 			}
 		}
+		wg.Wait()
 	}
+}
+
+
+func main() {
+    use192 := flag.Bool("192", true, "Check for servers on 192.xxx.xxx.xxx")
+    use172 := flag.Bool("172", false, "Check for servers on 172.(16 - 32).xxx.xxx")
+    use10 :=  flag.Bool("10", false, "Check for servers on 10.xxx.xxx.xxx")
+    flag.Parse()
+
+    if *use192 {
+        scan192()
+    }
+
+    if *use172 {
+        scan172()
+    }
+
+    if *use10 {
+        scan10()
+    }
 
 	wg.Wait()
 

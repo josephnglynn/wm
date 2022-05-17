@@ -1,6 +1,5 @@
-#include <X11/Xlib.h>
-#include <cstdlib>
 #define USE_HOOKS
+#define SERVER_DEBUG
 /*
 #define HOOK_LIST(H)                            \
 	H(manage_client, clients::client_node_t*)   \
@@ -12,6 +11,8 @@
 	H(button_event, xcb_button_press_event_t*)
 */
 #include "server/server.hpp"
+#include <X11/Xlib.h>
+#include <cstdlib>
 #include <filesystem>
 #include <logger/logger.hpp>
 #include <thread>
@@ -104,6 +105,13 @@ int main()
 
 	flow::server::flow_wm_server_t server(*wm, flow::server::get_server_data_from_file(server_data_location), 16812 + atoi(name));
 	server.run();
+
+	for (const auto& item : server.get_clients())
+	{
+		item->debug_handler = [](flow::server::WebSocketClient& client, flow::messages::message_debug_message_response_t& msg) {
+			logger::notify(msg.contents);
+		};
+	}
 
 	/*
 	 * TO TEST SERVER

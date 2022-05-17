@@ -2,13 +2,19 @@
 #define WM_MESSAGES_HPP
 #include "../server_data/server_data.hpp"
 
+// EXAMPLE ?
+enum DebugInfoRequest
+{
+	ServerVersion
+};
 
 #define MESSAGE_TYPES_REQ(H) \
-	H(sync_wm_servers, )        \
-	H(hello_world, )
+	H(sync_wm_servers, )     \
+	H(debug_message, DebugInfoRequest requested_information;)
 
-#define MESSAGE_TYPES_RES(H) \
-	H(sync_wm_servers, server::server_data_t server_data;)
+#define MESSAGE_TYPES_RES(H)                               \
+	H(sync_wm_servers, server::server_data_t server_data;) \
+	H(debug_message, std::string contents;)
 
 #define PLACE_MESSAGE_TYPE_AS_ENUM_REQ(name, ...) name##_request,
 #define PLACE_MESSAGE_TYPE_AS_ENUM_RES(name, ...) name##_response,

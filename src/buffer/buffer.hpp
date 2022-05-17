@@ -94,10 +94,16 @@ namespace flow::buffers
 	using server_buffer_t = buffers::buffer_t<char, int>;
 #define WRITE_MEMBER(name) write(&t.name, sizeof(t.name))
 #define WRITE_MEMBER_COMPLEX(name) write(t.name)
+#define GET_START_INFO()              \
+	auto start_location = m_location; \
+	result.data = m_data + m_location
+
+#define WRITE_START_INFO() \
+	result.size = m_location - start_location
 
 	template <>
 	template <>
-	inline buffer_write_result_t<char, int> buffer_t<char, int>::write(std::string_view& t)
+	inline buffer_write_result_t<char, int> buffer_t<char, int>::write(std::string& t)
 	{
 		auto size = t.size();
 		write(&size, sizeof(size));
@@ -108,16 +114,16 @@ namespace flow::buffers
 		return {};
 	}
 
-    template<>
-    template<>
-    inline buffer_write_result_t<char, int> buffer_t<char, int>::write(server::server_location_t& t) 
-    {
-        write(&t, sizeof(t));
-        /*
+	template <>
+	template <>
+	inline buffer_write_result_t<char, int> buffer_t<char, int>::write(server::server_location_t& t)
+	{
+		write(&t, sizeof(t));
+		/*
          * RETURN NOT IMPORTANT
          */
-        return {};
-    }
+		return {};
+	}
 
 	template <>
 	template <>
@@ -125,8 +131,8 @@ namespace flow::buffers
 	{
 		WRITE_MEMBER(uid);
 		WRITE_MEMBER_COMPLEX(machine_name);
-	    WRITE_MEMBER_COMPLEX(location);	
-        /*
+		WRITE_MEMBER_COMPLEX(location);
+		/*
 		 * RETURN NOT IMPORTANT
 		 */
 		return {};
@@ -137,12 +143,22 @@ namespace flow::buffers
 	inline buffer_write_result_t<char, int> buffer_t<char, int>::write(messages::message_sync_wm_servers_response_t& t)
 	{
 		buffer_write_result_t<char, int> result = {};
-		auto start_location = m_location;
-		result.data = m_data + m_location;
+		GET_START_INFO();
 		WRITE_MEMBER(type);
 		WRITE_MEMBER_COMPLEX(server_data);
+		WRITE_START_INFO();
+		return result;
+	}
 
-		result.size = m_location - start_location;
+	template <>
+	template <>
+	inline buffer_write_result_t<char, int> buffer_t<char, int>::write(messages::message_debug_message_response_t& t)
+	{
+		buffer_write_result_t<char, int> result = {};
+		GET_START_INFO();
+		WRITE_MEMBER(type);
+		WRITE_MEMBER_COMPLEX(contents);
+		WRITE_START_INFO();
 		return result;
 	}
 

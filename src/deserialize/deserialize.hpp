@@ -13,7 +13,7 @@ namespace flow::serialization
 	inline T deserialize(buffers::server_buffer_t& buffer);
 
 	template <>
-	inline std::string_view deserialize(buffers::server_buffer_t& buffer)
+	inline std::string deserialize(buffers::server_buffer_t& buffer)
 	{
 		auto size = *reinterpret_cast<std::string::size_type*>(buffer.read(sizeof(std::string::size_type)));
 		auto data = buffer.read(size);
@@ -31,7 +31,7 @@ namespace flow::serialization
 	{
 		server::server_data_t data;
 		data.uid = *reinterpret_cast<uint64_t*>(buffer.read(sizeof(data.uid)));
-		data.machine_name = deserialize<std::string_view>(buffer);
+		data.machine_name = deserialize<std::string>(buffer);
 		data.location = deserialize<server::server_location_t>(buffer);
 		return data;
 	}
@@ -42,6 +42,15 @@ namespace flow::serialization
 		messages::message_sync_wm_servers_response_t resp;
 		buffer.read(sizeof(resp.type));
 		resp.server_data = deserialize<server::server_data_t>(buffer);
+		return resp;
+	}
+
+	template <>
+	inline messages::message_debug_message_response_t deserialize(buffers::server_buffer_t& buffer)
+	{
+		messages::message_debug_message_response_t resp;
+		buffer.read(sizeof(resp.type));
+		resp.contents = deserialize<std::string>(buffer);
 		return resp;
 	}
 

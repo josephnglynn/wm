@@ -77,12 +77,22 @@ namespace flow::server
 		HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request) override;
 	};
 
+	struct WebSocketClient;
+	using debug_message_handler = void (*)(WebSocketClient&, messages::message_debug_message_response_t&);
 	struct WebSocketClient
 	{
-		WebSocketClient(std::function<void(WebSocketClient*)> func) : thread(std::thread(func, this)) {}
+		WebSocketClient(std::function<void(WebSocketClient*)> func)
+			: thread(std::thread(func, this)) {}
+
+
+#ifdef SERVER_DEBUG
+		debug_message_handler debug_handler = nullptr;
+#endif
+
 		std::mutex mutex;
 		WebSocket* socket;
 		std::thread thread;
+		server_data_t server_data;
 	};
 
 	class flow_wm_server_t
@@ -94,10 +104,13 @@ namespace flow::server
 		void run();
 		void stop();
 
-		inline const auto& get_server_data() { return server_data; }
+		inline std::vector<WebSocketClient*>& get_clients() { return client_threads; }
+		inline const server_data_t& get_server_data() { return server_data; }
+		inline std::mutex& get_lock() { return server_lock; }
 
 	private:
 		const int server_port;
+		std::mutex server_lock;
 		ServerSocket server_socket;
 		HTTPServer server;
 		server_data_t server_data;

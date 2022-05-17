@@ -3,8 +3,6 @@
 //
 
 #include "server.hpp"
-#include "../macro/macro.hpp"
-#include "../messages/messages.hpp"
 #include "wm/flow_wm.hpp"
 #include <Poco/Net/WebSocket.h>
 #include <cstdlib>
@@ -90,6 +88,7 @@ namespace flow::server
 	{
 		server.start();
 		logger::notify<logger::Debug>("STARTING SERVER ON PORT:", server_port);
+		const auto static_port = server_port;
 
 		const auto home = std::string(std::getenv("HOME"));
 		std::ifstream ips_file(home + "/.config/flow_wm/ip_addresses");
@@ -109,11 +108,12 @@ namespace flow::server
 				if (ip == line) goto continue_loop;
 			}
 
+
 			ips.push_back(line);
-			client_threads.emplace_back(new WebSocketClient([&](WebSocketClient* client) {
+			client_threads.emplace_back(new WebSocketClient([line, static_port](WebSocketClient* client) {
 				try
 				{
-					HTTPClientSession cs(line, server_port);
+					HTTPClientSession cs(line, static_port);
 					HTTPRequest request(HTTPRequest::HTTP_GET, "/?encoding=text", HTTPMessage::HTTP_1_1);
 					HTTPResponse response;
 

@@ -151,7 +151,7 @@ namespace flow::server
 		void write_to(const std::string& file_name);
 
 		uint64_t uid;
-		std::string_view machine_name;
+		std::string machine_name;
 		server_location_t location;
 	};
 
