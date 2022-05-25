@@ -154,7 +154,6 @@ namespace flow::server
 			ips.push_back(line);
 			client = static_cast<WebSocketClient*>(malloc(sizeof(WebSocketClient)));
 			memset(client, 0, sizeof(WebSocketClient));
-			worker(line, static_port, client);
 			client->thread = new std::thread(worker, line, static_port, client);
 
 			client_threads.push_back(client);
