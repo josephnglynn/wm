@@ -6,6 +6,7 @@
 #define WM_BUFFER_HPP
 #include "../messages/messages.hpp"
 #include "../server_data/server_data.hpp"
+#include <logger/logger.hpp>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -27,9 +28,14 @@ namespace flow::buffers
 	class buffer_t
 	{
 	public:
+
+
 		explicit buffer_t(size_type size)
 			: m_size(size), m_location(0), m_data(static_cast<data_type*>(std::malloc(size)))
 		{
+	#ifdef DEBUG
+			if (size <= 0) throw  "Buffer can't have a size of 0";
+	#endif
 		}
 
 		~buffer_t()

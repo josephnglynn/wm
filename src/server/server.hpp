@@ -81,17 +81,13 @@ namespace flow::server
 	using debug_message_handler = void (*)(WebSocketClient&, messages::message_debug_message_response_t&);
 	struct WebSocketClient
 	{
-		WebSocketClient(std::function<void(WebSocketClient*)> func)
-			: thread(std::thread(func, this)) {}
 
 
 #ifdef SERVER_DEBUG
 		debug_message_handler debug_handler = nullptr;
 #endif
-
-		std::mutex mutex;
 		WebSocket* socket;
-		std::thread thread;
+		std::thread* thread;
 		server_data_t server_data;
 	};
 

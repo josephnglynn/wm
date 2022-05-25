@@ -84,6 +84,48 @@ namespace flow::server
 		return n;
 	}
 
+	void worker(std::string line, int static_port, WebSocketClient* client)
+	{
+		try
+		{
+			HTTPClientSession cs(line, static_port);
+			HTTPRequest request(HTTPRequest::HTTP_GET, "/?encoding=text", HTTPMessage::HTTP_1_1);
+			HTTPResponse response;
+
+			//std::lock_guard<std::mutex> lock(client->mutex);
+			client->socket = new WebSocket(cs, request, response);
+			messages::message_sync_wm_servers_request_t _msg;
+			client->socket->sendFrame(&_msg, sizeof(_msg), WebSocket::FRAME_BINARY);
+
+			logger::notify<logger::Debug>("WebSocket connection established.");
+			buffers::server_buffer_t buffer = buffers::server_buffer_t(1024);
+			int n, flags;
+			do
+			{
+				//client->mutex.lock();
+				n = receive_frame(*client->socket, buffer, flags);
+				//client->mutex.unlock();
+
+				auto msg = reinterpret_cast<messages::message_base_request_t*>(buffer.get_data());
+#ifdef DEBUG
+				if (msg->type > messages::_number_of_request_types)
+				{
+					logger::error("How did we get a message with invalid type?");
+					continue;
+				}
+#endif
+				handlers::response_handlers[msg->type](*client, buffer);
+			} while (n > 0 && (flags & WebSocket::FRAME_OP_BITMASK) != WebSocket::FRAME_OP_CLOSE);
+			logger::notify<logger::Debug>("WebSocket connection closed.");
+		}
+		catch (std::exception& e)
+		{
+			logger::error(e.what());
+		}
+
+		client->socket = nullptr;
+	}
+
 	void flow_wm_server_t::run()
 	{
 		server.start();
@@ -98,6 +140,7 @@ namespace flow::server
 		std::string line;
 		while (std::getline(ips_file, line))
 		{
+			WebSocketClient* client;
 			for (const auto& ip : current_ip)
 			{
 				if (ip == line) goto continue_loop;
@@ -108,50 +151,13 @@ namespace flow::server
 				if (ip == line) goto continue_loop;
 			}
 
-
 			ips.push_back(line);
-			client_threads.emplace_back(new WebSocketClient([line, static_port](WebSocketClient* client) {
-				try
-				{
-					HTTPClientSession cs(line, static_port);
-					HTTPRequest request(HTTPRequest::HTTP_GET, "/?encoding=text", HTTPMessage::HTTP_1_1);
-					HTTPResponse response;
+			client = static_cast<WebSocketClient*>(malloc(sizeof(WebSocketClient)));
+			memset(client, 0, sizeof(WebSocketClient));
+			worker(line, static_port, client);
+			client->thread = new std::thread(worker, line, static_port, client);
 
-					{
-						std::lock_guard<std::mutex> lock(client->mutex);
-						client->socket = new WebSocket(cs, request, response);
-						messages::message_sync_wm_servers_request_t msg;
-						client->socket->sendFrame(&msg, sizeof(msg), WebSocket::FRAME_BINARY);
-					}
-
-					logger::notify<logger::Debug>("WebSocket connection established.");
-					buffers::server_buffer_t buffer = buffers::server_buffer_t(1024);
-					int n, flags;
-					do
-					{
-						client->mutex.lock();
-						n = receive_frame(*client->socket, buffer, flags);
-						client->mutex.unlock();
-
-						auto msg = reinterpret_cast<messages::message_base_request_t*>(buffer.get_data());
-#ifdef DEBUG
-						if (msg->type > messages::_number_of_request_types)
-						{
-							logger::error("How did we get a message with invalid type?");
-							continue;
-						}
-#endif
-						handlers::response_handlers[msg->type](*client, buffer);
-					} while (n > 0 && (flags & WebSocket::FRAME_OP_BITMASK) != WebSocket::FRAME_OP_CLOSE);
-					logger::notify<logger::Debug>("WebSocket connection closed.");
-				}
-				catch (std::exception& e)
-				{
-					logger::error(e.what());
-				}
-
-				client->socket = nullptr;
-			}));
+			client_threads.push_back(client);
 
 		continue_loop:;
 		}

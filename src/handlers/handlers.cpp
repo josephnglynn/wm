@@ -60,7 +60,7 @@ namespace flow::handlers
 	{
 		messages::message_sync_wm_servers_response_t response = serialization::deserialize<messages::message_sync_wm_servers_response_t>(buffer);
 
-		std::lock_guard lock(client.mutex);
+		//std::lock_guard lock(client.mutex);
 		client.server_data = response.server_data;
 		std::lock_guard server_lock(server->get_lock());
 
