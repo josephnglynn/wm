@@ -129,7 +129,7 @@ int main()
 		};
 	}
 
-	// std::thread t(test,  &server);
+	std::thread t(test,  &server);
 
 	/*
 	 * TO TEST SERVER
