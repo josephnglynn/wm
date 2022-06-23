@@ -25,7 +25,7 @@ namespace flow::handlers
 	extern std::array<request_handler, messages::_number_of_request_types> request_handlers;
 	extern std::array<response_handler, messages::_number_of_response_types> response_handlers;
 
-	void init_handlers(lib_wm::WindowManager& p_wm);
+	void init_handlers(lib_wm::WindowManager& p_wm, server::host_server_t* hs);
 } // namespace flow::handlers
 
 #endif //WM_HANDLERS_HPP

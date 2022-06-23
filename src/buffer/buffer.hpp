@@ -104,18 +104,6 @@ namespace flow::buffers
 #define WRITE_START_INFO() \
 	result.size = m_location - start_location
 
-	template <>
-	template <>
-	inline buffer_write_result_t<char, int> buffer_t<char, int>::write(messages::message_debug_message_response_t& t)
-	{
-		buffer_write_result_t<char, int> result = {};
-		GET_START_INFO();
-		WRITE_MEMBER(type);
-		WRITE_MEMBER_COMPLEX(contents);
-		WRITE_START_INFO();
-		return result;
-	}
-
 #undef WRITE_MEMBER
 #undef WRITE_MEMBER_COMPLEX
 

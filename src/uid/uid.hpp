@@ -8,12 +8,12 @@ namespace flow::uid
 	class uid_generator
 	{
 	public:
-		typedef uint32_t uid;
+		typedef uint32_t uid_t;
 
-		inline uid get_next_uid() { return current_uid++; }
+		inline uid_t get_next_uid() { return current_uid++; }
 
 	private:
-		uid current_uid = 1;
+		uid_t current_uid = 1;
 	};
 
 } // namespace flow::uid

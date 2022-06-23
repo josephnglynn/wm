@@ -3,6 +3,8 @@
 //
 
 #include "server.hpp"
+#include "src/config/config.hpp"
+#include "src/uid/uid.hpp"
 #include "wm/flow_wm.hpp"
 #include <Poco/Net/WebSocket.h>
 #include <cstdlib>
@@ -141,7 +143,8 @@ namespace flow::server
 		}
 	}
 
-	WebSocketRequestHandler::WebSocketRequestHandler() : buffer(2048)
+	WebSocketRequestHandler::WebSocketRequestHandler()
+		: buffer(2048)
 	{
 	}
 
@@ -151,5 +154,12 @@ namespace flow::server
 
 	void host_server_t::run()
 	{
+	}
+
+	uid::uid_generator::uid_t host_server_t::add_server(config::server_config& config)
+	{
+		auto uid = uid_gen.get_next_uid();
+
+		return uid;
 	}
 } // namespace flow::server

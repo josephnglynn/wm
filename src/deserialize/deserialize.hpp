@@ -20,15 +20,6 @@ namespace flow::serialization
 		return {data, size};
 	}
 
-	template <>
-	inline messages::message_debug_message_response_t deserialize(buffers::server_buffer_t& buffer)
-	{
-		messages::message_debug_message_response_t resp;
-		buffer.read(sizeof(resp.type));
-		resp.contents = deserialize<std::string>(buffer);
-		return resp;
-	}
-
 } // namespace flow::serialization
 
 #endif //WM_DESERIALIZE_HPP

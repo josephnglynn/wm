@@ -15,7 +15,8 @@ src = [
     'src/server/server.cpp',
     'src/handlers/handlers.cpp',
     'src/buffer/buffer.cpp',
-    'src/uid/uid.cpp'
+    'src/uid/uid.cpp',
+    'src/config/config.cpp'
 ]
 
 dep = [

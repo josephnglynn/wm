@@ -6,6 +6,7 @@
 #define WM_SERVER_HPP
 
 #include "../buffer/buffer.hpp"
+#include "../config/config.hpp"
 #include "../uid/uid.hpp"
 #include "Poco/Format.h"
 #include "Poco/Net/HTTPClientSession.h"
@@ -25,6 +26,7 @@
 #include "Poco/Util/Option.h"
 #include "Poco/Util/OptionSet.h"
 #include "Poco/Util/ServerApplication.h"
+#include "src/config/config.hpp"
 #include <functional>
 #include <logger/logger.hpp>
 #include <mutex>
@@ -87,8 +89,9 @@ namespace flow::server
 	{
 	public:
 		host_server_t();
-
 		void run();
+
+		uid::uid_generator::uid_t add_server(config::server_config& config);
 
 	private:
 		uid::uid_generator uid_gen;
