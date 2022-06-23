@@ -21,31 +21,6 @@ namespace flow::serialization
 	}
 
 	template <>
-	inline server::server_location_t deserialize(buffers::server_buffer_t& buffer)
-	{
-		return *(( server::server_location_t* ) buffer.read(sizeof(server::server_location_t)));
-	}
-
-	template <>
-	inline server::server_data_t deserialize(buffers::server_buffer_t& buffer)
-	{
-		server::server_data_t data;
-		data.uid = *reinterpret_cast<uint64_t*>(buffer.read(sizeof(data.uid)));
-		data.machine_name = deserialize<std::string>(buffer);
-		data.location = deserialize<server::server_location_t>(buffer);
-		return data;
-	}
-
-	template <>
-	inline messages::message_sync_wm_servers_response_t deserialize(buffers::server_buffer_t& buffer)
-	{
-		messages::message_sync_wm_servers_response_t resp;
-		buffer.read(sizeof(resp.type));
-		resp.server_data = deserialize<server::server_data_t>(buffer);
-		return resp;
-	}
-
-	template <>
 	inline messages::message_debug_message_response_t deserialize(buffers::server_buffer_t& buffer)
 	{
 		messages::message_debug_message_response_t resp;

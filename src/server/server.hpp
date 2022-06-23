@@ -6,6 +6,7 @@
 #define WM_SERVER_HPP
 
 #include "../buffer/buffer.hpp"
+#include "../uid/uid.hpp"
 #include "Poco/Format.h"
 #include "Poco/Net/HTTPClientSession.h"
 #include "Poco/Net/HTTPMessage.h"
@@ -27,6 +28,8 @@
 #include <functional>
 #include <logger/logger.hpp>
 #include <mutex>
+#include <rtc/configuration.hpp>
+#include <rtc/rtc.hpp>
 #include <thread>
 #include <vector>
 #include <wm/flow_wm.hpp>
@@ -77,43 +80,19 @@ namespace flow::server
 		HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request) override;
 	};
 
-	struct WebSocketClient;
-	using debug_message_handler = void (*)(WebSocketClient&, messages::message_debug_message_response_t&);
-	struct WebSocketClient
-	{
-
-
-#ifdef SERVER_DEBUG
-		debug_message_handler debug_handler = nullptr;
-#endif
-		WebSocket* socket;
-		std::thread* thread;
-		server_data_t server_data;
-	};
-
-	class flow_wm_server_t
+	/*
+     * HOST SERVER, ONLY ONE AT TIME
+     */
+	class host_server_t
 	{
 	public:
-		flow_wm_server_t(lib_wm::WindowManager& wm, server_data_t&& server_data, int port = 16812);
-		~flow_wm_server_t();
+		host_server_t();
 
 		void run();
-		void stop();
-
-		inline std::vector<WebSocketClient*>& get_clients() { return client_threads; }
-		inline const server_data_t& get_server_data() { return server_data; }
-		inline std::mutex& get_lock() { return server_lock; }
 
 	private:
-		const int server_port;
-		std::mutex server_lock;
-		ServerSocket server_socket;
-		HTTPServer server;
-		server_data_t server_data;
-		std::vector<std::string> ips;
-		std::vector<WebSocketClient*> client_threads;
+		uid::uid_generator uid_gen;
 	};
-
 } // namespace flow::server
 
 #endif //WM_SERVER_HPP

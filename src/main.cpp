@@ -12,7 +12,6 @@
 */
 #include "server/server.hpp"
 #include <X11/Xlib.h>
-#include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <logger/logger.hpp>
@@ -94,19 +93,6 @@ private:
 	};
 };
 
-void test (flow::server::flow_wm_server_t* server) {
-	std::this_thread::sleep_for(2min);
-	std::lock_guard lock(server->get_lock());
-	for (const auto& item : server->get_clients())
-	{
-		flow::messages::message_debug_message_request_t req;
-		req.requested_information = ServerVersion;
-		//std::lock_guard l(item->mutex);
-		item->socket->sendFrame(&req, sizeof(flow::messages::message_debug_message_request_t), Poco::Net::WebSocket::FrameOpcodes::FRAME_OP_BINARY);
-		logger::info("SENT DATA");
-	}
-}
-
 int main()
 {
 	logger::init();
@@ -119,23 +105,8 @@ int main()
 
 	char* name = XDisplayName(nullptr);
 
-	flow::server::flow_wm_server_t server(*wm, flow::server::get_server_data_from_file(server_data_location), 16812 + atoi(name));
+	flow::server::host_server_t server;
 	server.run();
-
-	for (const auto& item : server.get_clients())
-	{
-		item->debug_handler = [](flow::server::WebSocketClient& client, flow::messages::message_debug_message_response_t& msg) {
-			logger::notify(msg.contents);
-		};
-	}
-
-	std::thread t(test,  &server);
-
-	/*
-	 * TO TEST SERVER
-	 * using namespace std::chrono_literals;
-	 * std::this_thread::sleep_for(1000min);
-	 */
 
 	wm->run();
 

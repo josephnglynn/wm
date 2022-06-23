@@ -24,48 +24,6 @@
 namespace flow::server
 {
 
-	flow_wm_server_t::flow_wm_server_t(lib_wm::WindowManager& wm, server_data_t&& server_data, int port)
-		: server_port(port),
-		  server_socket(port),
-		  server(new RequestHandlerFactory, server_socket, new HTTPServerParams),
-		  server_data(server_data)
-	{
-		handlers::init_handlers(wm, *this);
-	}
-
-	flow_wm_server_t::~flow_wm_server_t()
-	{
-		stop();
-	}
-
-	std::vector<std::string> get_all_ips()
-	{
-		ifaddrs* if_address = nullptr;
-		getifaddrs(&if_address);
-
-		std::vector<std::string> addresses;
-
-		for (ifaddrs* i = if_address; i != nullptr; i = i->ifa_next)
-		{
-			if (i->ifa_addr->sa_family == AF_INET)
-			{
-				char address_buf[INET_ADDRSTRLEN];
-				inet_ntop(AF_INET, &(( sockaddr_in* ) i->ifa_addr)->sin_addr, address_buf, INET_ADDRSTRLEN);
-				addresses.emplace_back(address_buf);
-			}
-			else if (i->ifa_addr->sa_family == AF_INET6)
-			{
-				char address_buf[INET6_ADDRSTRLEN];
-				inet_ntop(AF_INET6, &(( struct sockaddr_in6* ) i->ifa_addr)->sin6_addr, address_buf, INET6_ADDRSTRLEN);
-				logger::warn<logger::Debug>("UMM, why ipv6?");
-				addresses.emplace_back(address_buf);
-			}
-		}
-
-		if (if_address != nullptr) freeifaddrs(if_address);
-		return addresses;
-	}
-
 	inline int receive_bytes(Poco::Net::WebSocketImpl* impl, buffers::server_buffer_t& buffer, int)
 	{
 		char mask[4];
@@ -84,96 +42,6 @@ namespace flow::server
 		return n;
 	}
 
-	void worker(std::string line, int static_port, WebSocketClient* client)
-	{
-		try
-		{
-			HTTPClientSession cs(line, static_port);
-			HTTPRequest request(HTTPRequest::HTTP_GET, "/?encoding=text", HTTPMessage::HTTP_1_1);
-			HTTPResponse response;
-
-			//std::lock_guard<std::mutex> lock(client->mutex);
-			client->socket = new WebSocket(cs, request, response);
-			messages::message_sync_wm_servers_request_t _msg;
-			client->socket->sendFrame(&_msg, sizeof(_msg), WebSocket::FRAME_BINARY);
-
-			logger::notify<logger::Debug>("WebSocket connection established.");
-			buffers::server_buffer_t buffer = buffers::server_buffer_t(1024);
-			int n, flags;
-			do
-			{
-				//client->mutex.lock();
-				n = receive_frame(*client->socket, buffer, flags);
-				//client->mutex.unlock();
-
-				auto msg = reinterpret_cast<messages::message_base_request_t*>(buffer.get_data());
-#ifdef DEBUG
-				if (msg->type > messages::_number_of_request_types)
-				{
-					logger::error("How did we get a message with invalid type?");
-					continue;
-				}
-#endif
-				handlers::response_handlers[msg->type](*client, buffer);
-			} while (n > 0 && (flags & WebSocket::FRAME_OP_BITMASK) != WebSocket::FRAME_OP_CLOSE);
-			logger::notify<logger::Debug>("WebSocket connection closed.");
-		}
-		catch (std::exception& e)
-		{
-			logger::error(e.what());
-		}
-
-		client->socket = nullptr;
-	}
-
-	void flow_wm_server_t::run()
-	{
-		server.start();
-		logger::notify<logger::Debug>("STARTING SERVER ON PORT:", server_port);
-		const auto static_port = server_port;
-
-		const auto home = std::string(std::getenv("HOME"));
-		std::ifstream ips_file(home + "/.config/flow_wm/ip_addresses");
-		if (!ips_file.good()) return;
-
-		auto current_ip = get_all_ips();
-		std::string line;
-		while (std::getline(ips_file, line))
-		{
-			WebSocketClient* client;
-			for (const auto& ip : current_ip)
-			{
-				if (ip == line) goto continue_loop;
-			}
-
-			for (const auto& ip : ips)
-			{
-				if (ip == line) goto continue_loop;
-			}
-
-			ips.push_back(line);
-			client = static_cast<WebSocketClient*>(malloc(sizeof(WebSocketClient)));
-			memset(client, 0, sizeof(WebSocketClient));
-			client->thread = new std::thread(worker, line, static_port, client);
-
-			client_threads.push_back(client);
-
-		continue_loop:;
-		}
-	}
-
-	void flow_wm_server_t::stop()
-	{
-		server.stop();
-	}
-
-	HTTPRequestHandler* RequestHandlerFactory::createRequestHandler(const HTTPServerRequest& request)
-	{
-		if (request.find("Upgrade") != request.end() && Poco::icompare(request["Upgrade"], "websocket") == 0)
-			return new WebSocketRequestHandler;
-		else
-			return new PageRequestHandler;
-	}
 	void PageRequestHandler::handleRequest(HTTPServerRequest& request, HTTPServerResponse& response)
 	{
 		/*
@@ -225,6 +93,14 @@ namespace flow::server
 #endif
 	}
 
+	HTTPRequestHandler* RequestHandlerFactory::createRequestHandler(const HTTPServerRequest& request)
+	{
+		if (request.find("Upgrade") != request.end() && Poco::icompare(request["Upgrade"], "websocket") == 0)
+			return new WebSocketRequestHandler;
+		else
+			return new PageRequestHandler;
+	}
+
 	void WebSocketRequestHandler::handleRequest(HTTPServerRequest& request, HTTPServerResponse& response)
 	{
 		try
@@ -243,7 +119,7 @@ namespace flow::server
 					continue;
 				}
 #endif
-				handlers::request_handlers[msg->type](ws, buffer);
+				handlers::request_handlers[msg->type](buffer, ws);
 			} while (n > 0 && (flags & WebSocket::FRAME_OP_BITMASK) != WebSocket::FRAME_OP_CLOSE);
 			logger::notify<logger::Debug>("WebSocket connection closed.");
 		}
@@ -265,12 +141,15 @@ namespace flow::server
 		}
 	}
 
-	/*
-	 * CHECK DEFAULT BUFFER SIZE
-	 */
-	WebSocketRequestHandler::WebSocketRequestHandler()
-		: HTTPRequestHandler(), buffer(2048)
+	WebSocketRequestHandler::WebSocketRequestHandler() : buffer(2048)
 	{
 	}
 
+	host_server_t::host_server_t()
+	{
+	}
+
+	void host_server_t::run()
+	{
+	}
 } // namespace flow::server

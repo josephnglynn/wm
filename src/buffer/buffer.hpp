@@ -5,11 +5,10 @@
 #ifndef WM_BUFFER_HPP
 #define WM_BUFFER_HPP
 #include "../messages/messages.hpp"
-#include "../server_data/server_data.hpp"
-#include <logger/logger.hpp>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <logger/logger.hpp>
 
 namespace flow::buffers
 {
@@ -28,14 +27,12 @@ namespace flow::buffers
 	class buffer_t
 	{
 	public:
-
-
 		explicit buffer_t(size_type size)
 			: m_size(size), m_location(0), m_data(static_cast<data_type*>(std::malloc(size)))
 		{
-	#ifdef DEBUG
-			if (size <= 0) throw  "Buffer can't have a size of 0";
-	#endif
+#ifdef DEBUG
+			if (size <= 0) throw "Buffer can't have a size of 0";
+#endif
 		}
 
 		~buffer_t()
@@ -106,55 +103,6 @@ namespace flow::buffers
 
 #define WRITE_START_INFO() \
 	result.size = m_location - start_location
-
-	template <>
-	template <>
-	inline buffer_write_result_t<char, int> buffer_t<char, int>::write(std::string& t)
-	{
-		auto size = t.size();
-		write(&size, sizeof(size));
-		write(t.data(), size);
-		/*
-		 * RETURN NOT IMPORTANT
-		 */
-		return {};
-	}
-
-	template <>
-	template <>
-	inline buffer_write_result_t<char, int> buffer_t<char, int>::write(server::server_location_t& t)
-	{
-		write(&t, sizeof(t));
-		/*
-         * RETURN NOT IMPORTANT
-         */
-		return {};
-	}
-
-	template <>
-	template <>
-	inline buffer_write_result_t<char, int> buffer_t<char, int>::write(server::server_data_t& t)
-	{
-		WRITE_MEMBER(uid);
-		WRITE_MEMBER_COMPLEX(machine_name);
-		WRITE_MEMBER_COMPLEX(location);
-		/*
-		 * RETURN NOT IMPORTANT
-		 */
-		return {};
-	}
-
-	template <>
-	template <>
-	inline buffer_write_result_t<char, int> buffer_t<char, int>::write(messages::message_sync_wm_servers_response_t& t)
-	{
-		buffer_write_result_t<char, int> result = {};
-		GET_START_INFO();
-		WRITE_MEMBER(type);
-		WRITE_MEMBER_COMPLEX(server_data);
-		WRITE_START_INFO();
-		return result;
-	}
 
 	template <>
 	template <>
