@@ -82,6 +82,15 @@ namespace flow::server
 		HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request) override;
 	};
 
+
+	struct ws_client_t {
+		WebSocket* ws;
+		config::server_config config;
+		uid::uid_generator::uid_t uid;
+	}
+
+
+
 	/*
      * HOST SERVER, ONLY ONE AT TIME
      */
@@ -91,11 +100,26 @@ namespace flow::server
 		host_server_t();
 		void run();
 
-		uid::uid_generator::uid_t add_server(config::server_config& config);
+		uid::uid_generator::uid_t add_server(WebSocket& ws, config::server_config& config);
 
 	private:
 		uid::uid_generator uid_gen;
+		std::vector<ws_client_t> websocket_clients;
 	};
+
+
+
+	class guest_client_t {
+	public:
+		guest_client_t();
+
+		std::string scan();
+		void connect();
+
+	private:
+		uid::uid_generator::uid_t uid;
+	}
+
 } // namespace flow::server
 
 #endif //WM_SERVER_HPP

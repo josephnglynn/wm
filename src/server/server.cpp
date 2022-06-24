@@ -154,12 +154,113 @@ namespace flow::server
 
 	void host_server_t::run()
 	{
+		
 	}
 
-	uid::uid_generator::uid_t host_server_t::add_server(config::server_config& config)
+	uid::uid_generator::uid_t host_server_t::add_server(WebSocket& ws, config::server_config& config)
 	{
-		auto uid = uid_gen.get_next_uid();
+		ws_client_t client;
+		client.ws = &ws;
+		client.config = config;
+		client.uid = uid_gen.get_next_uid();
 
-		return uid;
+		websocket_clients.push_back(client);
+
+		return client.uid;
+	}
+
+	guest_client_t::guest_client_t()
+	{
+
+	}
+
+
+
+	namespace internal
+	{
+		/*
+		 * INCLUSIVE
+		 */
+		struct range
+		{
+			range() = default;
+			range(int both) : begin(both), end(both) {}
+			range(int b, int e) : begin(b), end(e) {}
+
+			int begin;
+			int end;
+		}
+	}
+
+	inline bool test_ip(std::string& url) {
+
+	}
+
+
+	inline std::string scan_range(range ar, range br, range cr, range dr) 
+	{
+		for (int a = ar.begin; a <= ar.end; ++a) 
+		{
+			for (int b = br.begin; b <= br.end; ++b)     
+			{
+				for (int c = cr.begin; c <= cr.end; ++c)
+				{
+					for (int d = dr.begin; d <= dr.end; ++d)
+					{
+						const std::string url = ((((std::to_string(a) += ".") += std::to_string(b) + ".") += std::to_string(c) + ".") += std::to_string(d) + ":")
+						if (test_ip(url)) return url;
+					}
+				}
+			}
+		}
+	}
+
+
+
+	std::string guest_client_t::scan() 
+	{
+		const int thread_multiplier = 4;
+		auto thread_count = std::thread::hardware_concurrency() * thread_multiplier;
+		
+		std::vector<std::vector<std::thread>> thread_containter;
+
+		{
+			thread_containter.push_back(std::vector<std::thread>());
+			std::vector<std::thread>& threads = thread_containter[0];
+			threads.reserve(thread_count);
+
+
+			const auto interval = 255 / thread_count;
+			for (auto i = 0; i < thread_count-1; ++i)
+			{
+				threads.emplace_back(scan_range, range(192), range(i * interval, (i + 1)) * interval, range(0, 255), range(0, 255));
+			}
+
+			threads.emplace_back(scan_range, range(192), range(i * interval, 255), range(0, 255), range(0, 255));
+		}
+
+		{
+			thread_containter.push_back(std::vector<std::thread>());
+			std::vector<std::thread>& threads = thread_containter[1];
+			threads.reserve(thread_count);
+
+
+			const auto interval = 15 / thread_count;
+			for (auto i = 0; i < thread_count-1; ++i)
+			{
+				threads.emplace_back(scan_range, range(172), range(16 + i * interval, (i + 1)) * interval, range(0, 255), range(0, 255));
+			}
+
+			threads.emplace_back(scan_range, range(172), range(16 + i * interval, 31), range(0, 255), range(0, 255));
+		}
+
+
+		
+
+	}
+
+	void guest_client_t::connect() 
+	{
+
 	}
 } // namespace flow::server
