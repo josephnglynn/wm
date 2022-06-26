@@ -8,85 +8,32 @@
 #include "../buffer/buffer.hpp"
 #include "../config/config.hpp"
 #include "../uid/uid.hpp"
-#include "Poco/Format.h"
-#include "Poco/Net/HTTPClientSession.h"
-#include "Poco/Net/HTTPMessage.h"
-#include "Poco/Net/HTTPRequest.h"
-#include "Poco/Net/HTTPRequestHandler.h"
-#include "Poco/Net/HTTPRequestHandlerFactory.h"
-#include "Poco/Net/HTTPResponse.h"
-#include "Poco/Net/HTTPServer.h"
-#include "Poco/Net/HTTPServerParams.h"
-#include "Poco/Net/HTTPServerRequest.h"
-#include "Poco/Net/HTTPServerResponse.h"
-#include "Poco/Net/NetException.h"
-#include "Poco/Net/ServerSocket.h"
-#include "Poco/Net/WebSocket.h"
-#include "Poco/Util/HelpFormatter.h"
-#include "Poco/Util/Option.h"
-#include "Poco/Util/OptionSet.h"
-#include "Poco/Util/ServerApplication.h"
 #include "src/config/config.hpp"
 #include <functional>
 #include <logger/logger.hpp>
 #include <mutex>
 #include <thread>
 #include <vector>
+#include <websocketpp/client.hpp>
+#include <websocketpp/common/connection_hdl.hpp>
+#include <websocketpp/common/memory.hpp>
+#include <websocketpp/common/thread.hpp>
+#include <websocketpp/config/asio_no_tls.hpp>
+#include <websocketpp/config/asio_no_tls_client.hpp>
+#include <websocketpp/roles/server_endpoint.hpp>
+#include <websocketpp/server.hpp>
 #include <wm/flow_wm.hpp>
-
-using Poco::ThreadPool;
-using Poco::Timestamp;
-using Poco::Net::HTTPClientSession;
-using Poco::Net::HTTPMessage;
-using Poco::Net::HTTPRequest;
-using Poco::Net::HTTPRequestHandler;
-using Poco::Net::HTTPRequestHandlerFactory;
-using Poco::Net::HTTPResponse;
-using Poco::Net::HTTPServer;
-using Poco::Net::HTTPServerParams;
-using Poco::Net::HTTPServerRequest;
-using Poco::Net::HTTPServerResponse;
-using Poco::Net::ServerSocket;
-using Poco::Net::WebSocket;
-using Poco::Net::WebSocketException;
-using Poco::Util::Application;
-using Poco::Util::HelpFormatter;
-using Poco::Util::Option;
-using Poco::Util::OptionSet;
-using Poco::Util::ServerApplication;
 
 namespace flow::server
 {
 
 	const int SERVER_PORT = 16542;
 
-	class PageRequestHandler : public HTTPRequestHandler
-	{
-	public:
-		void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override;
-	};
-
-	class WebSocketRequestHandler : public HTTPRequestHandler
-	{
-	public:
-		WebSocketRequestHandler();
-		void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override;
-
-	private:
-		buffers::server_buffer_t buffer;
-	};
-
-	class RequestHandlerFactory : public HTTPRequestHandlerFactory
-	{
-	public:
-		HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request) override;
-	};
-
 	struct ws_client_t
 	{
-		WebSocket* ws;
 		config::server_config config;
 		uid::uid_generator::uid_t uid;
+		websocketpp::connection_hdl hdl;
 	};
 
 	/*
@@ -94,16 +41,82 @@ namespace flow::server
      */
 	class host_server_t
 	{
+
 	public:
 		host_server_t();
-		void run();
 
-		uid::uid_generator::uid_t add_server(WebSocket& ws, config::server_config& config);
+		using server_t = websocketpp::server<websocketpp::config::asio>;
+
+		void run();
+		uid::uid_generator::uid_t add_server(websocketpp::connection_hdl hdl, config::server_config& config);
 
 	private:
-		HTTPServer server;
+		void on_msg(websocketpp::connection_hdl hdl, server_t::message_ptr msg);
+
 		uid::uid_generator uid_gen;
+		std::thread internal_server_thread;
 		std::vector<ws_client_t> websocket_clients;
+		server_t server;
+	};
+
+	enum ConnectionStatus
+	{
+		Open,
+		Connecting,
+		Failed,
+		Closed
+	};
+
+	class connection_metadata
+	{
+	public:
+		using ptr = websocketpp::lib::shared_ptr<connection_metadata>;
+		using client = websocketpp::client<websocketpp::config::asio_client>;
+
+		connection_metadata(int uid, websocketpp::connection_hdl hdl, std::string uri)
+			: uid(uid), uri(uri), server_name("N/A"), status(Connecting), hdl(hdl) {}
+
+		inline int get_uid() const { return uid; }
+		inline ConnectionStatus get_status() const { return status; }
+		inline websocketpp::connection_hdl get_hdl() const { return hdl; }
+
+		inline void on_open(client* c, websocketpp::connection_hdl hdl)
+		{
+			status = Open;
+			client::connection_ptr con = c->get_con_from_hdl(hdl);
+			server_name = con->get_response_header("Server");
+		}
+
+		inline void on_fail(client* c, websocketpp::connection_hdl hdl)
+		{
+			status = Failed;
+			client::connection_ptr con = c->get_con_from_hdl(hdl);
+			server_name = con->get_response_header("Server");
+			error_reason = con->get_ec().message();
+		}
+
+		inline void on_close(client* c, websocketpp::connection_hdl hdl)
+		{
+			status = Closed;
+			client::connection_ptr con = c->get_con_from_hdl(hdl);
+			std::stringstream s;
+			s << "close code: " << con->get_remote_close_code() << " ("
+			  << websocketpp::close::status::get_string(con->get_remote_close_code())
+			  << "), close reason: " << con->get_remote_close_reason();
+			error_reason = s.str();
+		}
+
+		inline void on_message(websocketpp::connection_hdl hdl, client::message_ptr msg)
+		{
+		}
+
+	private:
+		int uid;
+		std::string uri;
+		std::string server_name;
+		ConnectionStatus status;
+		std::string error_reason;
+		websocketpp::connection_hdl hdl;
 	};
 
 	class guest_client_t
@@ -119,7 +132,6 @@ namespace flow::server
 		{
 			auto result = buffer.write(t);
 			std::lock_guard<std::mutex> lk(m);
-			ws_ptr->sendFrame(result.data, result.size, WebSocket::FRAME_BINARY);
 		}
 
 	private:
@@ -130,10 +142,10 @@ namespace flow::server
 		 * hs STORES HOST SERVER PTR ON THIS OBJECT, so can be freed
 		 */
 		std::mutex m;
-		WebSocket* ws_ptr = nullptr;
 		host_server_t* hs = nullptr;
 		uid::uid_generator::uid_t uid;
-		std::thread guest_server_thread;
+		connection_metadata::client client;
+		websocketpp::lib::shared_ptr<websocketpp::lib::thread> thread;
 	};
 
 } // namespace flow::server

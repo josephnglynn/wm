@@ -26,7 +26,7 @@
 		message_##recipient##_##name##_request_t(const uid::uid_generator::uid_t uid uid_bit) : uid(uid) \
 		{}                                                                                               \
                                                                                                          \
-		const message_type_request type = recipient##_##name##_request;                                  \
+		const message_type type = recipient##_##name##_request;                                          \
 		const uid::uid_generator::uid_t uid;                                                             \
 		__VA_ARGS__                                                                                      \
 	};
@@ -37,7 +37,7 @@
 		message_##recipient##_##name##_response_t(const uid::uid_generator::uid_t uid uid_bit) : uid(uid) \
 		{}                                                                                                \
                                                                                                           \
-		const message_type_response type = recipient##_##name##_response;                                 \
+		const message_type type = recipient##_##name##_response;                                          \
 		const uid::uid_generator::uid_t uid;                                                              \
 		__VA_ARGS__                                                                                       \
 	};
@@ -45,27 +45,22 @@
 namespace flow::messages
 {
 
-	enum message_type_request
+	enum message_type
 	{
 		MESSAGE_TYPES_REQ(PLACE_MESSAGE_TYPE_AS_ENUM_REQ)
-		_number_of_request_types
-	};
-
-	enum message_type_response
-	{
 		MESSAGE_TYPES_RES(PLACE_MESSAGE_TYPE_AS_ENUM_RES)
-		_number_of_response_types
+			_number_of_message_types
 	};
 
 	struct message_base_request_t
 	{
-		const message_type_request type;
+		const message_type type;
 		const uid::uid_generator::uid_t uid;
 	};
 
 	struct message_base_response_t
 	{
-		const message_type_response type;
+		const message_type type;
 		const uid::uid_generator::uid_t uid;
 	};
 

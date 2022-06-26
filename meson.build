@@ -27,7 +27,7 @@ dep = [
     dependency('logger', fallback: ['logger', 'logger_dep']),
     dependency('libwm', fallback: ['libwm', 'libwm_dep']),
     dependency('arg_parser', fallback: ['arg_parser', 'arg_parser_dep']),
-    dependency('Poco', method: 'cmake', components: ['Net']),
+    dependency('websocketpp'),
     dependency('threads'),
 ]
 
