@@ -30,8 +30,6 @@
 #include <functional>
 #include <logger/logger.hpp>
 #include <mutex>
-#include <rtc/configuration.hpp>
-#include <rtc/rtc.hpp>
 #include <thread>
 #include <vector>
 #include <wm/flow_wm.hpp>
@@ -60,6 +58,8 @@ using Poco::Util::ServerApplication;
 namespace flow::server
 {
 
+	const int SERVER_PORT = 16542;
+
 	class PageRequestHandler : public HTTPRequestHandler
 	{
 	public:
@@ -82,14 +82,12 @@ namespace flow::server
 		HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& request) override;
 	};
 
-
-	struct ws_client_t {
+	struct ws_client_t
+	{
 		WebSocket* ws;
 		config::server_config config;
 		uid::uid_generator::uid_t uid;
-	}
-
-
+	};
 
 	/*
      * HOST SERVER, ONLY ONE AT TIME
@@ -103,22 +101,40 @@ namespace flow::server
 		uid::uid_generator::uid_t add_server(WebSocket& ws, config::server_config& config);
 
 	private:
+		HTTPServer server;
 		uid::uid_generator uid_gen;
 		std::vector<ws_client_t> websocket_clients;
 	};
 
-
-
-	class guest_client_t {
+	class guest_client_t
+	{
 	public:
 		guest_client_t();
+		~guest_client_t();
 
-		std::string scan();
 		void connect();
 
+		template <typename T>
+		void send_msg(const T& t, buffers::server_buffer_t& buffer)
+		{
+			auto result = buffer.write(t);
+			std::lock_guard<std::mutex> lk(m);
+			ws_ptr->sendFrame(result.data, result.size, WebSocket::FRAME_BINARY);
+		}
+
 	private:
+		std::string scan();
+		void internal_connect(const std::string& url);
+
+		/*
+		 * hs STORES HOST SERVER PTR ON THIS OBJECT, so can be freed
+		 */
+		std::mutex m;
+		WebSocket* ws_ptr = nullptr;
+		host_server_t* hs = nullptr;
 		uid::uid_generator::uid_t uid;
-	}
+		std::thread guest_server_thread;
+	};
 
 } // namespace flow::server
 

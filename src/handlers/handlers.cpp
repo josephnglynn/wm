@@ -19,8 +19,8 @@ namespace flow::handlers
 	std::array<request_handler, messages::_number_of_request_types> request_handlers;
 	std::array<response_handler, messages::_number_of_response_types> response_handlers;
 
-#define INIT_REQ_HANDLER(name, ...) request_handlers[messages::name##_request] = name##_request_handler;
-#define INIT_RES_HANDLER(name, ...) response_handlers[messages::name##_response] = name##_response_handler;
+#define INIT_REQ_HANDLER(host, uid, name, ...) request_handlers[messages::host##_##name##_request] = host##_##name##_request_handler;
+#define INIT_RES_HANDLER(host, uid, name, ...) response_handlers[messages::host##_##name##_response] = host##_##name##_response_handler;
 
 	void init_handlers(lib_wm::WindowManager& p_wm, server::host_server_t* hs)
 	{
@@ -40,17 +40,18 @@ namespace flow::handlers
 	}
 #undef INIT_REQ_HANDLER
 
-	void initial_connect_request_handler(flow::buffers::server_buffer_t& buffer, Poco::Net::WebSocket& ws)
+	void host_initial_connect_request_handler(flow::buffers::server_buffer_t& buffer, Poco::Net::WebSocket& ws)
 	{
-		messages::message_initial_connect_request_t req = serialization::deserialize<messages::message_initial_connect_request_t>(buffer);
-		messages::message_initial_connect_response_t res(host_server->add_server(req.server_config));
-		auto data = buffer.write(res);
-		ws.sendBytes(data.data, data.size);
+		auto msg = messages::message_host_initial_connect_response_t();
+		auto res = buffer.write(msg);
+		ws.sendFrame(res.data, res.size, WebSocket::FRAME_BINARY);
 	}
 
-	void initial_connect_response_handler(flow::buffers::server_buffer_t& buffer)
+	void host_initial_connect_response_handler(flow::buffers::server_buffer_t& buffer)
 	{
-		
 	}
+
+	void host_connect_test_request_handler(flow::buffers::server_buffer_t& buffer, Poco::Net::WebSocket& ws) {}
+	void host_connect_test_response_handler(flow::buffers::server_buffer_t& buffer) {}
 
 } // namespace flow::handlers

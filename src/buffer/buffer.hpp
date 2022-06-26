@@ -97,12 +97,36 @@ namespace flow::buffers
 	using server_buffer_t = buffers::buffer_t<char, int>;
 #define WRITE_MEMBER(name) write(&t.name, sizeof(t.name))
 #define WRITE_MEMBER_COMPLEX(name) write(t.name)
-#define GET_START_INFO()              \
-	auto start_location = m_location; \
+#define GET_START_INFO()                          \
+	buffer_write_result_t<char, int> result = {}; \
+	auto start_location = m_location;             \
 	result.data = m_data + m_location
 
-#define WRITE_START_INFO() \
-	result.size = m_location - start_location
+#define WRITE_START_INFO()                     \
+	result.size = m_location - start_location; \
+	return result
+
+#define WRITE_DEFAULT_INFO() \
+	WRITE_MEMBER(type);      \
+	WRITE_MEMBER(uid)
+
+	template <>
+	template <>
+	inline buffer_write_result_t<char, int> buffer_t<char, int>::write(messages::message_host_connect_test_request_t& t)
+	{
+		GET_START_INFO();
+		WRITE_DEFAULT_INFO();
+		WRITE_START_INFO();
+	}
+
+	template <>
+	template <>
+	inline buffer_write_result_t<char, int> buffer_t<char, int>::write(messages::message_host_connect_test_response_t& t)
+	{
+		GET_START_INFO();
+		WRITE_DEFAULT_INFO();
+		WRITE_START_INFO();
+	}
 
 #undef WRITE_MEMBER
 #undef WRITE_MEMBER_COMPLEX
