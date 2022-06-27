@@ -20,8 +20,10 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <websocketpp/close.hpp>
 #include <websocketpp/common/connection_hdl.hpp>
 #include <websocketpp/common/memory.hpp>
+#include <websocketpp/common/system_error.hpp>
 #include <websocketpp/common/thread.hpp>
 #include <websocketpp/frame.hpp>
 #include <websocketpp/logger/levels.hpp>
@@ -47,18 +49,6 @@ namespace flow::server
 			server.start_accept();
 			server.run();
 		});
-	}
-
-	void on_msg(websocketpp::connection_hdl hdl, host_server_t::server_t::message_ptr msg)
-	{
-		const auto* data = dynamic_cast<messages::message_base_request_t*>(msg->get_payload().data());
-		if (data->type > messages::message_type::_number_of_message_types) return;
-		if (data->uid > 0)
-		{
-
-			return;
-		}
-		handlers::request_handlers[data->type]();
 	}
 
 	uid::uid_generator::uid_t host_server_t::add_server(websocketpp::connection_hdl hdl, config::server_config& config)
@@ -225,7 +215,7 @@ namespace flow::server
 	{
 
 		websocketpp::lib::error_code ec;
-		connection_metadata::client::connection_ptr con = client.get_connection(url, ec);
+		connection_metadata::client::connection_ptr con_ptr = client.get_connection(url, ec);
 
 		if (ec)
 		{
@@ -233,72 +223,30 @@ namespace flow::server
 			std::exit(-1); //TODO FIX GRACEFULLY
 		}
 
-		// https://github.com/zaphoyd/websocketpp/blob/master/tutorials/utility_client/step6.cpp
-		// TODO FINISH BASIC CLIENT
+		websocketpp::lib::shared_ptr<connection_metadata> ptr = websocketpp::lib::make_shared<connection_metadata>(con_ptr->get_handle(), url);
 
-		HTTPClientSession cs(url, SERVER_PORT);
-		HTTPRequest request(HTTPRequest::HTTP_GET, "/?encoding=text", HTTPMessage::HTTP_1_1);
-		HTTPResponse response;
+		connection = ptr;
 
-		WebSocket ws(cs, request, response);
-		ws_ptr = &ws;
+		con_ptr->set_open_handler(std::bind(&connection_metadata::on_open, ptr, &client, websocketpp::lib::placeholders::_1));
+		con_ptr->set_fail_handler(std::bind(&connection_metadata::on_fail, ptr, &client, websocketpp::lib::placeholders::_1));
+		con_ptr->set_close_handler(std::bind(&connection_metadata::on_close, ptr, &client, websocketpp::lib::placeholders::_1));
+		con_ptr->set_message_handler(std::bind(&connection_metadata::on_message, ptr, websocketpp::lib::placeholders::_1, websocketpp::lib::placeholders::_2));
 
-		buffers::server_buffer_t internal_buffer(2048);
-		/*
-         * CHECK IF REAL SERVER
-         */
-		{
-			messages::message_host_connect_test_request_t msg(0);
-			auto res = internal_buffer.write(msg);
-			ws.sendFrame(res.data, res.size, WebSocket::FRAME_BINARY);
-		}
-
-		int n, flags;
-
-		/*
-         * WAIT FOR RESPONSE TO OUR TEST REQUEST
-         */
-		{
-			int count = 0;
-			do {
-				std::lock_guard<std::mutex> lk(m);
-				n = receive_frame(ws, internal_buffer, flags);
-				auto msg = reinterpret_cast<messages::message_base_response_t*>(internal_buffer.get_data());
-
-				if (msg->type > messages::_number_of_request_types)
-				{
-					continue;
-				}
-				if (msg->type == messages::message_type_response::host_connect_test_response) { break; }
-				++count;
-			} while (n > 0 && (flags & WebSocket::FRAME_OP_BITMASK) != WebSocket::FRAME_OP_CLOSE && count < 10); // TODO: 10 is arbitary, change
-
-			if (count == 10)
-			{
-				logger::error("FATAL ERROR, server url is incorrect");
-				std::exit(-1);
-			}
-
-			messages::message_host_initial_connect_request_t msg;
-			auto res = internal_buffer.write(msg);
-
-			std::lock_guard<std::mutex> lk(m);
-			ws.sendFrame(res.data, res.size, WebSocket::FRAME_BINARY);
-		}
+		client.connect(con_ptr);
 
 		do {
-			std::lock_guard<std::mutex> lk(m);
-			n = receive_frame(ws, internal_buffer, flags);
-			auto msg = reinterpret_cast<messages::message_base_response_t*>(internal_buffer.get_data());
+			std::this_thread::sleep_for(100ms);
+		} while (connection->get_status() == ConnectionStatus::Connecting);
 
-			if (msg->type > messages::_number_of_request_types)
-			{
-				continue;
-			}
+		if (connection->get_status() != ConnectionStatus::Open)
+		{
+			logger::error("MASSIVE ERROR WE CANT FIX NOW");
+			std::exit(-1);
+		}
 
-			handlers::response_handlers[msg->type](internal_buffer);
-
-		} while (n > 0 && (flags & WebSocket::FRAME_OP_BITMASK) != WebSocket::FRAME_OP_CLOSE);
+		buffers::server_buffer_t buffer(1024);
+		messages::message_host_connect_test_request_t msg;
+		send_msg(msg, buffer);
 	}
 
 	void guest_client_t::connect()
@@ -315,5 +263,11 @@ namespace flow::server
 	guest_client_t::~guest_client_t()
 	{
 		delete hs;
+		client.stop_perpetual();
+
+		websocketpp::lib::error_code ec;
+		client.close(connection->get_hdl(), websocketpp::close::status::going_away, "", ec);
+
+		thread->join();
 	}
 } // namespace flow::server

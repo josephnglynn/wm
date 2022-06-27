@@ -52,13 +52,7 @@ namespace flow::messages
 			_number_of_message_types
 	};
 
-	struct message_base_request_t
-	{
-		const message_type type;
-		const uid::uid_generator::uid_t uid;
-	};
-
-	struct message_base_response_t
+	struct message_base_t
 	{
 		const message_type type;
 		const uid::uid_generator::uid_t uid;

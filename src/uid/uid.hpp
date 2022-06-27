@@ -8,7 +8,7 @@ namespace flow::uid
 	class uid_generator
 	{
 	public:
-		typedef uint32_t uid_t;
+		typedef int32_t uid_t;
 
 		inline uid_t get_next_uid() { return current_uid++; }
 

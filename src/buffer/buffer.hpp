@@ -5,6 +5,7 @@
 #ifndef WM_BUFFER_HPP
 #define WM_BUFFER_HPP
 #include "../messages/messages.hpp"
+#include "src/config/config.hpp"
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -112,19 +113,19 @@ namespace flow::buffers
 
 	template <>
 	template <>
-	inline buffer_write_result_t<char, int> buffer_t<char, int>::write(messages::message_host_connect_test_request_t& t)
+	inline buffer_write_result_t<char, int> buffer_t<char, int>::write(config::server_config& t)
 	{
-		GET_START_INFO();
-		WRITE_DEFAULT_INFO();
-		WRITE_START_INFO();
+		//TODO FINISH AFTER SERVER CONFIG
+		return {};
 	}
 
 	template <>
 	template <>
-	inline buffer_write_result_t<char, int> buffer_t<char, int>::write(messages::message_host_connect_test_response_t& t)
+	inline buffer_write_result_t<char, int> buffer_t<char, int>::write(messages::message_host_initial_connect_request_t& t)
 	{
 		GET_START_INFO();
 		WRITE_DEFAULT_INFO();
+		WRITE_MEMBER_COMPLEX(server_config);
 		WRITE_START_INFO();
 	}
 
