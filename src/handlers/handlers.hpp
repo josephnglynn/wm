@@ -12,6 +12,7 @@
 
 namespace flow::handlers
 {
+
 	using handler = void (*)(websocketpp::connection_hdl, messages::message_base_t*);
 #define PLACE_HANDLERS_REQ(host, uid, name, ...) void host##_##name##_request_handler(websocketpp::connection_hdl, messages::message_base_t*);
 #define PLACE_HANDLERS_RES(host, uid, name, ...) void host##_##name##_response_handler(websocketpp::connection_hdl, messages::message_base_t*);

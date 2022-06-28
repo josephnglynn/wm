@@ -12,11 +12,13 @@
 #include "src/handlers/handlers.hpp"
 #include "src/messages/messages.hpp"
 #include <functional>
+#include <istream>
 #include <logger/logger.hpp>
 #include <mutex>
+#include <string>
 #include <thread>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 #include <websocketpp/client.hpp>
 #include <websocketpp/common/connection_hdl.hpp>
 #include <websocketpp/common/memory.hpp>
@@ -31,13 +33,15 @@
 
 namespace flow::server
 {
+	using web_client_t = websocketpp::client<websocketpp::config::asio_client>;
 
 	const int SERVER_PORT = 16542;
 
 	struct ws_client_t
 	{
 		ws_client_t() = default;
-		ws_client_t(websocketpp::connection_hdl hdl) : hdl(hdl) {}
+		ws_client_t(websocketpp::connection_hdl hdl)
+			: hdl(hdl) {}
 
 		config::server_config config;
 		websocketpp::connection_hdl hdl;
@@ -59,47 +63,50 @@ namespace flow::server
 		uid::uid_generator::uid_t add_server(websocketpp::connection_hdl hdl, config::server_config& config);
 
 	private:
-		inline void on_open(websocketpp::connection_hdl hdl) 
+		inline void on_open(websocketpp::connection_hdl hdl)
 		{
 			websocket_clients[uid_gen.get_next_uid()] = ws_client_t(hdl);
-		}; 
+		};
 
-		inline void on_close(websocketpp::connection_hdl hdl) 
+		inline void on_close(websocketpp::connection_hdl hdl)
 		{
-			for (auto& it = std::begin(websocket_clients); it != std::end(websocket_clients); ++it) 
+			for (std::unordered_map<uid::uid_generator::uid_t, ws_client_t>::iterator it = websocket_clients.begin(); it != websocket_clients.end(); it++)
 			{
-				if (it->second.hdl == hdl)
+				std::shared_ptr ptr1(it->second.hdl);
+				std::shared_ptr ptr2(hdl);
+
+				if (ptr1 == ptr2)
 				{
 					websocket_clients.erase(it);
 					break;
 				}
 			}
 		}
-		
-		inline void forward_msg_on(messages::message_base_t* msg, std::string::size_t size) 
+
+		inline void forward_msg_on(messages::message_base_t* msg, std::string::size_type size)
 		{
 			auto location = websocket_clients.find(msg->uid);
-			if (location != std::end(websocket_clients)) 
+			if (location != std::end(websocket_clients))
 			{
 				websocketpp::lib::error_code ec;
 				client.send(location->hdl, msg, size, websocketpp::frame::opcode::BINARY, ec);
 				if (ec) goto error_forward;
-			} 
+			}
 			else
 			{
 				goto error_forward;
 			}
 
-			error_forward:
-				#ifdef DEBUG
-					logger::warn("Error occured forwarding msg");
-				#endif
+		error_forward:
+#ifdef DEBUG
+			logger::warn("Error occured forwarding msg");
+#endif
 		}
 
-		inline void on_msg(websocketpp::connection_hdl hdl, server_t::message_ptr msg) 
+		inline void on_msg(websocketpp::connection_hdl hdl, server_t::message_ptr msg)
 		{
-			auto& payload = msg.get_payload();
-			auto* data = (messages::message_base_t*) payload.data();
+			auto& payload = msg->get_payload();
+			auto* data = ( messages::message_base_t* ) payload.data();
 			if (data->uid > 0) return forward_msg_on(data, payload.size());
 			handlers::handlers[data->type](hdl, data);
 		}
@@ -122,7 +129,6 @@ namespace flow::server
 	{
 	public:
 		using ptr = websocketpp::lib::shared_ptr<connection_metadata>;
-		using client = websocketpp::client<websocketpp::config::asio_client>;
 
 		connection_metadata(websocketpp::connection_hdl hdl, std::string uri)
 			: uri(uri), server_name("N/A"), status(Connecting), uid(-1), hdl(hdl) {}

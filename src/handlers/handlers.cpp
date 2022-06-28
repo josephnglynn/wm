@@ -22,8 +22,7 @@ namespace flow::handlers
 	server::guest_client_t* guest_client;
 
 	extern std::array<handler, messages::_number_of_message_types> handlers;
-	using guest_client_t = server::connection_metadata::client;
-	using connection_ptr_t = server::connection_metadata::client::connection_ptr;
+	using connection_ptr_t = server::web_client_t::connection_ptr;
 
 #define INIT_REQ_HANDLER(host, uid, name, ...) handlers[messages::host##_##name##_request] = host##_##name##_request_handler;
 #define INIT_RES_HANDLER(host, uid, name, ...) handlers[messages::host##_##name##_response] = host##_##name##_response_handler;
@@ -65,7 +64,7 @@ namespace flow::handlers
 		websocketpp::lib::error_code ec;
 		response.good = true;
 
-		guest_client_t& c = guest_client->get_client();
+		server::web_client_t& c = guest_client->get_client();
 		c.send(hdl, &response, sizeof(response), websocketpp::frame::opcode::BINARY, ec);
 	}
 
@@ -85,7 +84,7 @@ namespace flow::handlers
 		auto result = buf.write(resp);
 
 		websocketpp::lib::error_code ec;
-		guest_client_t& c = guest_client->get_client();
+		server::web_client_t& c = guest_client->get_client();
 		c.send(hdl, result.data, result.size, websocketpp::frame::opcode::BINARY, ec);
 	}
 
