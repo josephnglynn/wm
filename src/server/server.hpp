@@ -16,6 +16,7 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+#include <unordered_map>
 #include <websocketpp/client.hpp>
 #include <websocketpp/common/connection_hdl.hpp>
 #include <websocketpp/common/memory.hpp>
@@ -35,8 +36,10 @@ namespace flow::server
 
 	struct ws_client_t
 	{
+		ws_client_t() = default;
+		ws_client_t(websocketpp::connection_hdl hdl) : hdl(hdl) {}
+
 		config::server_config config;
-		uid::uid_generator::uid_t uid;
 		websocketpp::connection_hdl hdl;
 	};
 
@@ -48,6 +51,7 @@ namespace flow::server
 
 	public:
 		host_server_t();
+		~host_server_t();
 
 		using server_t = websocketpp::server<websocketpp::config::asio>;
 
@@ -55,11 +59,54 @@ namespace flow::server
 		uid::uid_generator::uid_t add_server(websocketpp::connection_hdl hdl, config::server_config& config);
 
 	private:
-		void on_msg(websocketpp::connection_hdl hdl, server_t::message_ptr msg);
+		inline void on_open(websocketpp::connection_hdl hdl) 
+		{
+			websocket_clients[uid_gen.get_next_uid()] = ws_client_t(hdl);
+		}; 
+
+		inline void on_close(websocketpp::connection_hdl hdl) 
+		{
+			for (auto& it = std::begin(websocket_clients); it != std::end(websocket_clients); ++it) 
+			{
+				if (it->second.hdl == hdl)
+				{
+					websocket_clients.erase(it);
+					break;
+				}
+			}
+		}
+		
+		inline void forward_msg_on(messages::message_base_t* msg, std::string::size_t size) 
+		{
+			auto location = websocket_clients.find(msg->uid);
+			if (location != std::end(websocket_clients)) 
+			{
+				websocketpp::lib::error_code ec;
+				client.send(location->hdl, msg, size, websocketpp::frame::opcode::BINARY, ec);
+				if (ec) goto error_forward;
+			} 
+			else
+			{
+				goto error_forward;
+			}
+
+			error_forward:
+				#ifdef DEBUG
+					logger::warn("Error occured forwarding msg");
+				#endif
+		}
+
+		inline void on_msg(websocketpp::connection_hdl hdl, server_t::message_ptr msg) 
+		{
+			auto& payload = msg.get_payload();
+			auto* data = (messages::message_base_t*) payload.data();
+			if (data->uid > 0) return forward_msg_on(data, payload.size());
+			handlers::handlers[data->type](hdl, data);
+		}
 
 		uid::uid_generator uid_gen;
 		std::thread internal_server_thread;
-		std::vector<ws_client_t> websocket_clients;
+		std::unordered_map<uid::uid_generator::uid_t, ws_client_t> websocket_clients;
 		server_t server;
 	};
 
@@ -113,7 +160,7 @@ namespace flow::server
 		inline void on_message(websocketpp::connection_hdl hdl, client::message_ptr msg)
 		{
 			auto* data = ( messages::message_base_t* ) msg->get_payload().data();
-			if (data->type > messages::message_type::_number_of_message_types || data->uid > 0) return;
+			if (data->type > messages::message_type::_number_of_message_types) return;
 			handlers::handlers[data->type](msg, data);
 		}
 

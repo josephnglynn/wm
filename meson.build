@@ -31,6 +31,8 @@ dep = [
     dependency('threads'),
 ]
 
+subdir('utils')
+
 exe = executable(
     'flow_wm',
     src  + 'src/main.cpp',

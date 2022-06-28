@@ -40,6 +40,13 @@ namespace flow::server
 
 		server.init_asio();
 		server.set_message_handler(std::bind(&host_server_t::on_msg, this, std::placeholders::_1, std::placeholders::_2));
+		server.set_open_handler(std::bind(&host_server_t::on_open, this, std::placeholders::_1));
+		server.set_close_handler(std::bind(&host_server_t::on_close, this, std::placeholders::_1));
+	}
+
+	host_server_t::~host_server_t() 
+	{
+		// TODO DESTRUCTOR
 	}
 
 	void host_server_t::run()
@@ -244,9 +251,9 @@ namespace flow::server
 			std::exit(-1);
 		}
 
-		buffers::server_buffer_t buffer(1024);
+		
 		messages::message_host_connect_test_request_t msg;
-		send_msg(msg, buffer);
+		client.send(ptr->get_hdl(), &msg, sizeof(msg), websocketpp::frame::opcode::BINARY, ec);
 	}
 
 	void guest_client_t::connect()
