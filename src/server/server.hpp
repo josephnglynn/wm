@@ -7,10 +7,9 @@
 
 #include "../buffer/buffer.hpp"
 #include "../config/config.hpp"
+#include "../handlers/handlers.hpp"
+#include "../messages/messages.hpp"
 #include "../uid/uid.hpp"
-#include "src/config/config.hpp"
-#include "src/handlers/handlers.hpp"
-#include "src/messages/messages.hpp"
 #include <functional>
 #include <istream>
 #include <logger/logger.hpp>
@@ -42,8 +41,8 @@ namespace flow::server
 		ws_client_t() = default;
 		ws_client_t(websocketpp::connection_hdl hdl)
 			: hdl(hdl) {}
-
 		config::server_config config;
+		uid::uid_generator::uid_t uid;
 		websocketpp::connection_hdl hdl;
 	};
 
@@ -61,6 +60,7 @@ namespace flow::server
 
 		void run();
 		uid::uid_generator::uid_t add_server(websocketpp::connection_hdl hdl, config::server_config& config);
+		inline server_t& get_server(){return server;};
 
 	private:
 		inline void on_open(websocketpp::connection_hdl hdl)
@@ -70,7 +70,7 @@ namespace flow::server
 
 		inline void on_close(websocketpp::connection_hdl hdl)
 		{
-			for (std::unordered_map<uid::uid_generator::uid_t, ws_client_t>::iterator it = websocket_clients.begin(); it != websocket_clients.end(); it++)
+			for (auto it = websocket_clients.begin(); it != websocket_clients.end(); it++)
 			{
 				std::shared_ptr ptr1(it->second.hdl);
 				std::shared_ptr ptr2(hdl);
@@ -89,7 +89,7 @@ namespace flow::server
 			if (location != std::end(websocket_clients))
 			{
 				websocketpp::lib::error_code ec;
-				client.send(location->hdl, msg, size, websocketpp::frame::opcode::BINARY, ec);
+				server.send(location->second.hdl, msg, size, websocketpp::frame::opcode::BINARY, ec);
 				if (ec) goto error_forward;
 			}
 			else
@@ -106,10 +106,14 @@ namespace flow::server
 		inline void on_msg(websocketpp::connection_hdl hdl, server_t::message_ptr msg)
 		{
 			auto& payload = msg->get_payload();
-			auto* data = ( messages::message_base_t* ) payload.data();
+			const buffers::server_buffer_t buf(payload);
+			auto* data = ( messages::message_base_t* ) buf.get_data();
 			if (data->uid > 0) return forward_msg_on(data, payload.size());
-			handlers::handlers[data->type](hdl, data);
+
+			handlers::handlers[data->type](std::move(hdl), buf);
 		}
+
+
 
 		uid::uid_generator uid_gen;
 		std::thread internal_server_thread;
@@ -131,31 +135,31 @@ namespace flow::server
 		using ptr = websocketpp::lib::shared_ptr<connection_metadata>;
 
 		connection_metadata(websocketpp::connection_hdl hdl, std::string uri)
-			: uri(uri), server_name("N/A"), status(Connecting), uid(-1), hdl(hdl) {}
+			: uri(std::move(uri)), server_name("N/A"), status(Connecting), uid(-1), hdl(std::move(hdl)) {}
 
 		inline int get_uid() const { return uid; }
 		inline ConnectionStatus get_status() const { return status; }
 		inline websocketpp::connection_hdl get_hdl() const { return hdl; }
 
-		inline void on_open(client* c, websocketpp::connection_hdl hdl)
+		inline void on_open(web_client_t* c, websocketpp::connection_hdl p_hdl)
 		{
 			status = Open;
-			client::connection_ptr con = c->get_con_from_hdl(hdl);
+			web_client_t::connection_ptr con = c->get_con_from_hdl(std::move(p_hdl));
 			server_name = con->get_response_header("Server");
 		}
 
-		inline void on_fail(client* c, websocketpp::connection_hdl hdl)
+		inline void on_fail(web_client_t* c, websocketpp::connection_hdl p_hdl)
 		{
 			status = Failed;
-			client::connection_ptr con = c->get_con_from_hdl(hdl);
+			web_client_t::connection_ptr con = c->get_con_from_hdl(std::move(p_hdl));
 			server_name = con->get_response_header("Server");
 			error_reason = con->get_ec().message();
 		}
 
-		inline void on_close(client* c, websocketpp::connection_hdl hdl)
+		inline void on_close(web_client_t* c, websocketpp::connection_hdl p_hdl)
 		{
 			status = Closed;
-			client::connection_ptr con = c->get_con_from_hdl(hdl);
+			web_client_t::connection_ptr con = c->get_con_from_hdl(p_hdl);
 			std::stringstream s;
 			s << "close code: " << con->get_remote_close_code() << " ("
 			  << websocketpp::close::status::get_string(con->get_remote_close_code())
@@ -163,11 +167,15 @@ namespace flow::server
 			error_reason = s.str();
 		}
 
-		inline void on_message(websocketpp::connection_hdl hdl, client::message_ptr msg)
+		inline void on_message(websocketpp::connection_hdl p_hdl, web_client_t::message_ptr msg)
 		{
-			auto* data = ( messages::message_base_t* ) msg->get_payload().data();
+			auto& payload = msg->get_payload();
+			const buffers::server_buffer_t buf(payload);
+
+			messages::message_base_t* data = (( messages::message_base_t* ) buf.get_data());
 			if (data->type > messages::message_type::_number_of_message_types) return;
-			handlers::handlers[data->type](msg, data);
+
+			handlers::handlers[data->type](msg, buf);
 		}
 
 	private:
@@ -199,13 +207,22 @@ namespace flow::server
 			if (ec)
 			{
 
-				logger::notify("Damn, an error occured sending a msg: ");
+				logger::notify("Damn, an error occurred sending a msg: ");
 			}
 #endif
 		}
 
-		inline connection_metadata::client& get_client() { return client; }
-		inline config::server_config& get_config() { return server_config; }
+		inline web_client_t& get_client()
+		{
+			return client;
+		}
+		inline config::server_config& get_config()
+		{
+			return server_config;
+		}
+
+		inline uid::uid_generator::uid_t get_uid() const { return uid; }
+		inline void set_uid(uid::uid_generator::uid_t n_uid) { uid = n_uid;}
 
 	private:
 		std::string scan();
@@ -216,7 +233,7 @@ namespace flow::server
 		 */
 		host_server_t* hs = nullptr;
 		uid::uid_generator::uid_t uid;
-		connection_metadata::client client;
+		web_client_t client;
 		config::server_config server_config;
 		connection_metadata::ptr connection;
 		websocketpp::lib::shared_ptr<websocketpp::lib::thread> thread;

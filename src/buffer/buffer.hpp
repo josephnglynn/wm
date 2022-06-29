@@ -4,8 +4,8 @@
 
 #ifndef WM_BUFFER_HPP
 #define WM_BUFFER_HPP
+#include "../config/config.hpp"
 #include "../messages/messages.hpp"
-#include "src/config/config.hpp"
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -36,12 +36,17 @@ namespace flow::buffers
 #endif
 		}
 
+		explicit buffer_t(const std::string& str)
+			: m_size(str.size()), m_location(0), m_data(( data_type* ) (( void* ) str.data()))
+		{
+		}
+
 		~buffer_t()
 		{
 			free(m_data);
 		}
 
-		void reset()
+		void reset() const
 		{
 			m_location = 0;
 		}
@@ -67,19 +72,36 @@ namespace flow::buffers
 			return write_location_ptr;
 		}
 
-		inline data_type* read(size_type amount)
+		[[nodiscard]] inline data_type* read(size_type amount)
 		{
 			auto result = m_data + m_location;
 			m_location += amount;
 			return result;
 		}
 
+		[[nodiscard]] inline data_type* read(size_type amount) const
+		{
+			auto result = m_data + m_location;
+			auto* ptr = const_cast<buffer_t<data_type, size_type>*>(this);
+			ptr->m_location += amount;
+			return result;
+		}
+
 		template <typename T>
 		inline buffer_write_result_t<data_type, size_type> write(T& t);
 
-		[[nodiscard]] inline size_type get_size() const { return m_size; }
-		[[nodiscard]] inline size_type get_location() const { return m_location; }
-		inline data_type* get_data() { return m_data; }
+		[[nodiscard]] inline size_type get_size() const
+		{
+			return m_size;
+		}
+		[[nodiscard]] inline size_type get_location() const
+		{
+			return m_location;
+		}
+		[[nodiscard]] inline data_type* get_data() const
+		{
+			return m_data;
+		}
 
 	private:
 		size_type m_size;
@@ -113,8 +135,19 @@ namespace flow::buffers
 
 	template <>
 	template <>
+	inline buffer_write_result_t<char, int> buffer_t<char, int>::write(config::vec3<int>& t)
+	{
+		WRITE_MEMBER(x);
+		WRITE_MEMBER(y);
+		WRITE_MEMBER(z);
+		return {};
+	}
+
+	template <>
+	template <>
 	inline buffer_write_result_t<char, int> buffer_t<char, int>::write(config::server_config& t)
 	{
+		write(t.server_location);
 		//TODO FINISH AFTER SERVER CONFIG
 		return {};
 	}

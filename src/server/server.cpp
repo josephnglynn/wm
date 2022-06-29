@@ -3,12 +3,12 @@
 //
 
 #include "server.hpp"
+#include "../buffer/buffer.hpp"
+#include "../config/config.hpp"
+#include "../deserialize/deserialize.hpp"
 #include "../handlers/handlers.hpp"
-#include "src/buffer/buffer.hpp"
-#include "src/config/config.hpp"
-#include "src/deserialize/deserialize.hpp"
-#include "src/messages/messages.hpp"
-#include "src/uid/uid.hpp"
+#include "../messages/messages.hpp"
+#include "../uid/uid.hpp"
 #include "wm/flow_wm.hpp"
 #include <chrono>
 #include <condition_variable>
@@ -44,7 +44,7 @@ namespace flow::server
 		server.set_close_handler(std::bind(&host_server_t::on_close, this, std::placeholders::_1));
 	}
 
-	host_server_t::~host_server_t() 
+	host_server_t::~host_server_t()
 	{
 		// TODO DESTRUCTOR
 	}
@@ -65,7 +65,7 @@ namespace flow::server
 		client.config = config;
 		client.uid = uid_gen.get_next_uid();
 
-		websocket_clients.push_back(client);
+		websocket_clients[client.uid] = client;
 
 		return client.uid;
 	}
@@ -78,7 +78,7 @@ namespace flow::server
 		client.init_asio();
 		client.start_perpetual();
 
-		thread = websocketpp::lib::make_shared<websocketpp::lib::thread>(&connection_metadata::client::run, &client);
+		thread = websocketpp::lib::make_shared<websocketpp::lib::thread>(&web_client_t::run, &client);
 	}
 
 	namespace internal
@@ -222,7 +222,7 @@ namespace flow::server
 	{
 
 		websocketpp::lib::error_code ec;
-		connection_metadata::client::connection_ptr con_ptr = client.get_connection(url, ec);
+		web_client_t::connection_ptr con_ptr = client.get_connection(url, ec);
 
 		if (ec)
 		{
@@ -251,7 +251,6 @@ namespace flow::server
 			std::exit(-1);
 		}
 
-		
 		messages::message_host_connect_test_request_t msg;
 		client.send(ptr->get_hdl(), &msg, sizeof(msg), websocketpp::frame::opcode::BINARY, ec);
 	}

@@ -139,12 +139,10 @@ namespace flow::config
 
 	using server_location_t = vec3<int32_t>;
 
-	class server_config
+	struct server_config
 	{
-	public:
 		server_config();
 
-	private:
 		server_location_t server_location;
 	};
 } // namespace flow::config

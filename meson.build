@@ -23,7 +23,7 @@ dep = [
     dependency('xcb'),
     dependency('xcb-ewmh'),
     dependency('xcb-icccm'),
-    dependency('LibDataChannel'),
+#    dependency('LibDataChannel'),
     dependency('logger', fallback: ['logger', 'logger_dep']),
     dependency('libwm', fallback: ['libwm', 'libwm_dep']),
     dependency('arg_parser', fallback: ['arg_parser', 'arg_parser_dep']),

@@ -12,11 +12,13 @@
 #define GUEST_UID
 #define MESSAGE_TYPES_REQ(H)          \
 	H(host, HOST_UID, connect_test, ) \
-	H(host, HOST_UID, initial_connect, config::server_config* server_config;)
+	H(host, HOST_UID, initial_connect, config::server_config server_config;)
 
 #define MESSAGE_TYPES_RES(H)                    \
 	H(host, HOST_UID, connect_test, bool good;) \
-	H(host, HOST_UID, initial_connect, config::server_config* server_config;)
+	H(host, HOST_UID, initial_connect, )
+
+
 
 #define PLACE_MESSAGE_TYPE_AS_ENUM_REQ(recipient, uid, name, ...) recipient##_##name##_request,
 #define PLACE_MESSAGE_TYPE_AS_ENUM_RES(recipient, uid, name, ...) recipient##_##name##_response,
@@ -27,7 +29,7 @@
 		{}                                                                                               \
                                                                                                          \
 		const message_type type = recipient##_##name##_request;                                          \
-		const uid::uid_generator::uid_t uid;                                                             \
+		uid::uid_generator::uid_t uid;                                                             \
 		__VA_ARGS__                                                                                      \
 	};
 
@@ -38,7 +40,7 @@
 		{}                                                                                                \
                                                                                                           \
 		const message_type type = recipient##_##name##_response;                                          \
-		const uid::uid_generator::uid_t uid;                                                              \
+		uid::uid_generator::uid_t uid;                                                              \
 		__VA_ARGS__                                                                                       \
 	};
 
