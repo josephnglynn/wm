@@ -155,6 +155,9 @@ namespace flow::server
 
 				for (int i = 0; i < take_amount; ++i)
 				{
+					if (!responses[i].valid()) {
+						logger::notify(local_ips[i].to_str(), "is invalid");
+					}
 					responses[i].wait();
 					cpr::Response resp = responses[i].get();
 					auto s_head = resp.header.find("Server");
@@ -170,6 +173,8 @@ namespace flow::server
 				responses.erase(responses.begin(), responses.end());
 			}
 		};
+
+		func();
 
 		for (int i = 0; i < thread_count; ++i)
 		{
@@ -241,16 +246,18 @@ namespace flow::server
 
 	void guest_client_t::connect(lib_wm::WindowManager& wm)
 	{
-		auto url = scan();
-		if (url.empty())
-		{
-			hs = new host_server_t();
+		internal_connect_thread = std::thread([&]() {
+			auto url = scan();
+			if (url.empty())
+			{
+				hs = new host_server_t();
+				handlers::init_handlers(wm, ( void* ) this, ( void* ) hs);
+				hs->run();
+				url = "ws://127.0.0.1:" + std::to_string(SERVER_PORT);
+			}
 			handlers::init_handlers(wm, ( void* ) this, ( void* ) hs);
-			hs->run();
-			url = "ws://127.0.0.1:" + std::to_string(SERVER_PORT);
-		}
-		handlers::init_handlers(wm, ( void* ) this, ( void* ) hs);
-		internal_connect("ws://" + url);
+			internal_connect("ws://" + url);
+		});
 	}
 
 	guest_client_t::~guest_client_t()

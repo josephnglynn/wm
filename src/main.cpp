@@ -103,12 +103,8 @@ int main()
 
 	auto* wm = new lib_wm::WindowManager(new custom_shell_t());
 
-	char* name = XDisplayName(nullptr);
-
-	flow::server::guest_client_t guest;
-	auto thread = std::thread([&]() { guest.connect(*wm); });
+    flow::server::guest_client_t guest;
+	guest.connect(*wm);
 
 	wm->run();
-
-	free(name);
 }
