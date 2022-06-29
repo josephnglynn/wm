@@ -105,11 +105,9 @@ int main()
 
 	char* name = XDisplayName(nullptr);
 
-	flow::server::host_server_t server;
-	server.run();
 
-	flow::server::guest_client_t guest;
-	guest.connect();
+    flow::server::guest_client_t guest;
+	guest.connect(*wm);
 
 	wm->run();
 

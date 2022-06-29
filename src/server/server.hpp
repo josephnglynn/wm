@@ -17,6 +17,7 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 #include <websocketpp/client.hpp>
 #include <websocketpp/common/connection_hdl.hpp>
@@ -34,15 +35,17 @@ namespace flow::server
 {
 	using web_client_t = websocketpp::client<websocketpp::config::asio_client>;
 
-	const int SERVER_PORT = 16542;
+	const int SERVER_PORT = 16544;
+	const std::string AUTH_STRING = "THIS_IS_A_LEGIT_FLOW_OS_SERVER_WINK_WINK"; // TODO FIX AUTH
 
 	struct ws_client_t
 	{
 		ws_client_t() = default;
 		ws_client_t(websocketpp::connection_hdl hdl)
-			: hdl(hdl) {}
+			: hdl(std::move(hdl)) {}
+
 		config::server_config config;
-		uid::uid_generator::uid_t uid;
+		uid::uid_generator::uid_t uid = -1;
 		websocketpp::connection_hdl hdl;
 	};
 
@@ -65,10 +68,10 @@ namespace flow::server
 	private:
 		inline void on_open(websocketpp::connection_hdl hdl)
 		{
-			websocket_clients[uid_gen.get_next_uid()] = ws_client_t(hdl);
+			websocket_clients[uid_gen.get_next_uid()] = ws_client_t(std::move(hdl));
 		};
 
-		inline void on_close(websocketpp::connection_hdl hdl)
+		inline void on_close(const websocketpp::connection_hdl& hdl)
 		{
 			for (auto it = websocket_clients.begin(); it != websocket_clients.end(); it++)
 			{
@@ -103,19 +106,19 @@ namespace flow::server
 #endif
 		}
 
-		inline void on_msg(websocketpp::connection_hdl hdl, server_t::message_ptr msg)
+		inline void on_msg(websocketpp::connection_hdl hdl, const server_t::message_ptr& msg)
 		{
 			auto& payload = msg->get_payload();
-			const buffers::server_buffer_t buf(payload);
+			const buffers::server_buffer_str_t buf(payload);
 			auto* data = ( messages::message_base_t* ) buf.get_data();
 			if (data->uid > 0) return forward_msg_on(data, payload.size());
 
-			handlers::handlers[data->type](std::move(hdl), buf);
+			handlers::handlers[data->type](std::move(hdl), *(const buffers::server_buffer_t*)&buf);
 		}
 
 
 
-		uid::uid_generator uid_gen;
+		uid::uid_generator uid_gen = {};
 		std::thread internal_server_thread;
 		std::unordered_map<uid::uid_generator::uid_t, ws_client_t> websocket_clients;
 		server_t server;
@@ -137,9 +140,9 @@ namespace flow::server
 		connection_metadata(websocketpp::connection_hdl hdl, std::string uri)
 			: uri(std::move(uri)), server_name("N/A"), status(Connecting), uid(-1), hdl(std::move(hdl)) {}
 
-		inline int get_uid() const { return uid; }
-		inline ConnectionStatus get_status() const { return status; }
-		inline websocketpp::connection_hdl get_hdl() const { return hdl; }
+		[[nodiscard]] inline int get_uid() const { return uid; }
+		[[nodiscard]] inline ConnectionStatus get_status() const { return status; }
+		[[nodiscard]] inline websocketpp::connection_hdl get_hdl() const { return hdl; }
 
 		inline void on_open(web_client_t* c, websocketpp::connection_hdl p_hdl)
 		{
@@ -159,7 +162,7 @@ namespace flow::server
 		inline void on_close(web_client_t* c, websocketpp::connection_hdl p_hdl)
 		{
 			status = Closed;
-			web_client_t::connection_ptr con = c->get_con_from_hdl(p_hdl);
+			web_client_t::connection_ptr con = c->get_con_from_hdl(std::move(p_hdl));
 			std::stringstream s;
 			s << "close code: " << con->get_remote_close_code() << " ("
 			  << websocketpp::close::status::get_string(con->get_remote_close_code())
@@ -167,15 +170,15 @@ namespace flow::server
 			error_reason = s.str();
 		}
 
-		inline void on_message(websocketpp::connection_hdl p_hdl, web_client_t::message_ptr msg)
+		inline void on_message(websocketpp::connection_hdl hdl, web_client_t::message_ptr msg)
 		{
 			auto& payload = msg->get_payload();
-			const buffers::server_buffer_t buf(payload);
+			const buffers::server_buffer_str_t buf(payload);
 
 			messages::message_base_t* data = (( messages::message_base_t* ) buf.get_data());
 			if (data->type > messages::message_type::_number_of_message_types) return;
 
-			handlers::handlers[data->type](msg, buf);
+			handlers::handlers[data->type](std::move(hdl),  *(const buffers::server_buffer_t*)&buf);
 		}
 
 	private:
@@ -193,7 +196,7 @@ namespace flow::server
 		guest_client_t();
 		~guest_client_t();
 
-		void connect();
+		void connect(lib_wm::WindowManager& wm);
 
 		template <typename T>
 		inline void send_msg(const T& t, buffers::server_buffer_t& buffer)
@@ -216,6 +219,7 @@ namespace flow::server
 		{
 			return client;
 		}
+
 		inline config::server_config& get_config()
 		{
 			return server_config;

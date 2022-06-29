@@ -24,7 +24,7 @@ namespace flow::buffers
 		data_type* data;
 	};
 
-	template <typename data_type = uintptr_t, typename size_type = size_t>
+	template <typename data_type = uintptr_t, typename size_type = size_t, bool STRING_CONTAINER_BUF = false>
 	class buffer_t
 	{
 	public:
@@ -43,7 +43,7 @@ namespace flow::buffers
 
 		~buffer_t()
 		{
-			free(m_data);
+			if constexpr (!STRING_CONTAINER_BUF) free(m_data);
 		}
 
 		void reset() const
@@ -118,6 +118,7 @@ namespace flow::buffers
 	 * using char_buffer_t = buffer_t<char, size_t>;
 	 */
 	using server_buffer_t = buffers::buffer_t<char, int>;
+	using server_buffer_str_t = buffers::buffer_t<char, int, true>;
 #define WRITE_MEMBER(name) write(&t.name, sizeof(t.name))
 #define WRITE_MEMBER_COMPLEX(name) write(t.name)
 #define GET_START_INFO()                          \

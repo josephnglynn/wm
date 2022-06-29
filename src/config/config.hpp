@@ -79,14 +79,14 @@ namespace flow::config
 			return *this;
 		}
 
-		inline constexpr vec3<T> operator++(int)
+		inline constexpr const vec3<T> operator++(int)
 		{
 			vec3<T> tmp(*this);
 			++*this;
 			return tmp;
 		}
 
-		inline constexpr vec3<T> operator--(int)
+		inline constexpr const vec3<T> operator--(int)
 		{
 			vec3<T> tmp(*this);
 			--*this;

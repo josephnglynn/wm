@@ -3,28 +3,18 @@
 //
 
 #include "server.hpp"
-#include "../buffer/buffer.hpp"
-#include "../config/config.hpp"
-#include "../deserialize/deserialize.hpp"
-#include "../handlers/handlers.hpp"
-#include "../messages/messages.hpp"
-#include "../uid/uid.hpp"
-#include "wm/flow_wm.hpp"
 #include <chrono>
-#include <condition_variable>
+#include <cpr/cpr.h>
 #include <cstdlib>
 #include <exception>
-#include <fstream>
-#include <ifaddrs.h>
 #include <logger/logger.hpp>
 #include <mutex>
 #include <string>
 #include <thread>
+#include <utility>
 #include <websocketpp/close.hpp>
 #include <websocketpp/common/connection_hdl.hpp>
 #include <websocketpp/common/memory.hpp>
-#include <websocketpp/common/system_error.hpp>
-#include <websocketpp/common/thread.hpp>
 #include <websocketpp/frame.hpp>
 #include <websocketpp/logger/levels.hpp>
 
@@ -39,9 +29,13 @@ namespace flow::server
 		server.set_access_channels(websocketpp::log::alevel::fail);
 
 		server.init_asio();
+#ifdef DEBUG
+		server.set_reuse_addr(true);
+#endif
 		server.set_message_handler(std::bind(&host_server_t::on_msg, this, std::placeholders::_1, std::placeholders::_2));
 		server.set_open_handler(std::bind(&host_server_t::on_open, this, std::placeholders::_1));
 		server.set_close_handler(std::bind(&host_server_t::on_close, this, std::placeholders::_1));
+		server.set_user_agent(server::AUTH_STRING);
 	}
 
 	host_server_t::~host_server_t()
@@ -61,7 +55,7 @@ namespace flow::server
 	uid::uid_generator::uid_t host_server_t::add_server(websocketpp::connection_hdl hdl, config::server_config& config)
 	{
 		ws_client_t client;
-		client.hdl = hdl;
+		client.hdl = std::move(hdl);
 		client.config = config;
 		client.uid = uid_gen.get_next_uid();
 
@@ -83,139 +77,129 @@ namespace flow::server
 
 	namespace internal
 	{
-		/*
-		 * INCLUSIVE
-		 */
-		struct range
+		struct ip_t
 		{
-			range() = default;
-			range(int both)
-				: begin(both), end(both) {}
-			range(int b, int e)
-				: begin(b), end(e) {}
+			ip_t() = default;
+			ip_t(int a, int b, int c, int d, int port)
+				: a(a), b(b), c(c), d(d), port(port) {}
+			static inline ip_t zero() { return ip_t(0, 0, 0, 0, 0); }
 
-			int begin;
-			int end;
+			int a;
+			int b;
+			int c;
+			int d;
+			int port;
+
+			inline std::string to_str() const { return std::to_string(a) + "." + std::to_string(b) + "." + std::to_string(c) + "." + std::to_string(d) + ":" + std::to_string(port); }
 		};
 	} // namespace internal
 
-	inline bool test_ip(const std::string& url, buffers::server_buffer_t& buf)
+	inline internal::ip_t scan_range(internal::ip_t begin, internal::ip_t end, unsigned int thread_count)
 	{
-		return false;
-	}
+		const int take_amount = 50;
+		const int timeout = 100; //ms
 
-	class str_con
-	{
-	public:
-		inline void set_value(const std::string& new_value)
-		{
-			{
-				std::lock_guard<std::mutex> lock(m);
-				value = new_value;
-			}
-		}
-
-		inline std::mutex& get_mutex() { return m; }
-		inline const std::string& get_value() { return value; }
-
-	private:
 		std::mutex m;
-		std::string value;
-	};
-
-	inline void scan_range(str_con* str, internal::range ar, internal::range br, internal::range cr, internal::range dr)
-	{
-		buffers::server_buffer_t buf(2048);
-		for (int a = ar.begin; a <= ar.end; ++a)
+		std::vector<internal::ip_t> ips = {};
+		ips.reserve((begin.a * (end.a + 1)) * (begin.b * (end.b + 1)) * (begin.c * (end.c + 1)) * (begin.d * (end.d + 1)));
+		internal::ip_t begin_backup = begin;
+		for (begin.a = begin_backup.a; begin.a <= end.a; ++begin.a)
 		{
-			for (int b = br.begin; b <= br.end; ++b)
+			for (begin.b = begin_backup.b; begin.b <= end.b; ++begin.b)
 			{
-				for (int c = cr.begin; c <= cr.end; ++c)
+				for (begin.c = begin_backup.c; begin.c <= end.c; ++begin.c)
 				{
-					for (int d = dr.begin; d <= dr.end; ++d)
+					for (begin.d = begin_backup.d; begin.d <= end.d; ++begin.d)
 					{
-						const std::string url = std::to_string(a) + "." + std::to_string(b) + "." + std::to_string(c) + "." + std::to_string(d) + ":" + std::to_string(SERVER_PORT);
-						if (test_ip(url, buf))
-						{
-							str->set_value(url);
-							return;
-						}
+						ips.emplace_back(begin);
 					}
 				}
 			}
 		}
-	}
 
-	inline int get_number_of_threads_alive(std::vector<std::vector<std::thread>>& t)
-	{
-		int count = 0;
-		for (const auto& a : t)
-		{
-			for (const auto& b : a)
+		std::mutex m2;
+		bool quit = false;
+		std::vector<std::thread> threads;
+		internal::ip_t server_ip = internal::ip_t::zero();
+		auto should_quit = [&]() { std::lock_guard<std::mutex> lk(m2); return quit; };
+		auto func = [&]() {
+			std::vector<internal::ip_t> local_ips;
+			std::vector<cpr::AsyncResponse> responses;
+			while (!should_quit())
 			{
-				count += b.joinable();
+				responses.reserve(take_amount);
+				local_ips.reserve(take_amount);
+				{
+					std::lock_guard<std::mutex> lk(m);
+					if (ips.size() > take_amount)
+					{
+						local_ips.assign(ips.end() - take_amount, ips.end());
+						ips.erase(ips.end() - take_amount, ips.end());
+					}
+					else if (!ips.empty())
+					{
+						local_ips.assign(ips.begin(), ips.end());
+						ips.erase(ips.begin(), ips.end());
+					}
+					else
+					{
+						break;
+					}
+				}
+
+				for (const auto& item : local_ips)
+				{
+
+					responses.emplace_back(cpr::GetAsync(cpr::Url {item.to_str()}, cpr::Timeout {timeout}));
+				}
+
+				for (int i = 0; i < take_amount; ++i)
+				{
+					responses[i].wait();
+					cpr::Response resp = responses[i].get();
+					auto s_head = resp.header.find("Server");
+					if (s_head != resp.header.end() && s_head->second == server::AUTH_STRING)
+					{
+						std::lock_guard<std::mutex> lk(m2);
+						server_ip = local_ips[i];
+						quit = true;
+					}
+				}
+
+				local_ips.erase(local_ips.begin(), local_ips.end());
+				responses.erase(responses.begin(), responses.end());
 			}
+		};
+
+		for (int i = 0; i < thread_count; ++i)
+		{
+			threads.emplace_back(func);
 		}
 
-		return count;
+		for (int i = 0; i < thread_count; ++i)
+		{
+			if (threads[i].joinable()) threads[i].join();
+		}
+
+		return server_ip;
 	}
 
 	std::string guest_client_t::scan()
 	{
 		const int thread_multiplier = 1;
 		auto thread_count = std::thread::hardware_concurrency() * thread_multiplier; // Total thread count *= 3
+		auto is_ip_zero = [](internal::ip_t ip) { return ip.a == 0 && ip.b == 0 && ip.c == 0 && ip.d == 0 && ip.port == 0; };
 
-		str_con str;
+		auto result = scan_range(internal::ip_t(192, 168, 0, 0, SERVER_PORT), internal::ip_t(192, 168, 255, 255, SERVER_PORT), thread_count);
+		if (!is_ip_zero(result)) return result.to_str();
 
-		std::vector<std::vector<std::thread>> thread_containter;
+		result = scan_range(internal::ip_t(172, 16, 0, 0, SERVER_PORT), internal::ip_t(172, 31, 255, 255, SERVER_PORT), thread_count);
+		if (!is_ip_zero(result)) return result.to_str();
 
-		{
-			thread_containter.emplace_back();
-			std::vector<std::thread>& threads = thread_containter[0];
-			threads.reserve(thread_count);
+		result = scan_range(internal::ip_t(10, 0, 0, 0, SERVER_PORT), internal::ip_t(10, 255, 255, 255, SERVER_PORT), thread_count);
+		if (!is_ip_zero(result)) return result.to_str();
 
-			const auto interval = 255 / thread_count;
-			for (auto i = 0; i < thread_count; ++i)
-			{
-				threads.emplace_back(scan_range, &str, internal::range(192), internal::range(168), internal::range(i * interval, (i + 1) * interval), internal::range(0, 255));
-			}
-
-			threads.emplace_back(scan_range, &str, internal::range(192), internal::range(168), internal::range(thread_count * interval, 255), internal::range(0, 255));
-		}
-
-		{
-			thread_containter.emplace_back();
-			std::vector<std::thread>& threads = thread_containter[1];
-			threads.reserve(thread_count);
-
-			const auto interval = 15 / thread_count;
-			for (auto i = 0; i < thread_count; ++i)
-			{
-				threads.emplace_back(scan_range, &str, internal::range(172), internal::range(16 + i * interval, (i + 1) * interval), internal::range(0, 255), internal::range(0, 255));
-			}
-
-			threads.emplace_back(scan_range, &str, internal::range(172), internal::range(16 + thread_count * interval, 31), internal::range(0, 255), internal::range(0, 255));
-		}
-
-		{
-			thread_containter.emplace_back();
-			std::vector<std::thread>& threads = thread_containter[0];
-			threads.reserve(thread_count);
-
-			const auto interval = 255 / thread_count;
-			for (auto i = 0; i < thread_count; ++i)
-			{
-				threads.emplace_back(scan_range, &str, internal::range(10), internal::range(i * interval, (i + 1) * interval), internal::range(0, 255), internal::range(0, 255));
-			}
-
-			threads.emplace_back(scan_range, &str, internal::range(10), internal::range(thread_count * interval, 255), internal::range(0, 255), internal::range(0, 255));
-		}
-
-		do {
-			std::this_thread::sleep_for(100ms);
-		} while (str.get_value().empty() && get_number_of_threads_alive(thread_containter) != 0);
-
-		return str.get_value();
+		return "";
 	}
 
 	void guest_client_t::internal_connect(const std::string& url)
@@ -255,15 +239,18 @@ namespace flow::server
 		client.send(ptr->get_hdl(), &msg, sizeof(msg), websocketpp::frame::opcode::BINARY, ec);
 	}
 
-	void guest_client_t::connect()
+	void guest_client_t::connect(lib_wm::WindowManager& wm)
 	{
 		auto url = scan();
 		if (url.empty())
 		{
 			hs = new host_server_t();
+			handlers::init_handlers(wm, ( void* ) this, ( void* ) hs);
 			hs->run();
-			url = "127.0.0.1:" + std::to_string(SERVER_PORT);
+			url = "ws://127.0.0.1:" + std::to_string(SERVER_PORT);
 		}
+		handlers::init_handlers(wm, ( void* ) this, ( void* ) hs);
+		internal_connect("ws://" + url);
 	}
 
 	guest_client_t::~guest_client_t()
