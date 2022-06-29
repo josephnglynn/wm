@@ -239,6 +239,7 @@ namespace flow::server
 		uid::uid_generator::uid_t uid;
 		web_client_t client;
 		config::server_config server_config;
+		std::thread internal_connect_thread;
 		connection_metadata::ptr connection;
 		websocketpp::lib::shared_ptr<websocketpp::lib::thread> thread;
 	};

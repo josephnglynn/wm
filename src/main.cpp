@@ -105,9 +105,8 @@ int main()
 
 	char* name = XDisplayName(nullptr);
 
-
-    flow::server::guest_client_t guest;
-	guest.connect(*wm);
+	flow::server::guest_client_t guest;
+	auto thread = std::thread([&]() { guest.connect(*wm); });
 
 	wm->run();
 
