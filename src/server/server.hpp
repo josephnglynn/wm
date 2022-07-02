@@ -63,7 +63,7 @@ namespace flow::server
 
 		void run();
 		uid::uid_generator::uid_t add_server(websocketpp::connection_hdl hdl, config::server_config& config);
-		inline server_t& get_server(){return server;};
+		inline server_t& get_server() { return server; };
 
 	private:
 		inline void on_open(websocketpp::connection_hdl hdl)
@@ -113,10 +113,8 @@ namespace flow::server
 			auto* data = ( messages::message_base_t* ) buf.get_data();
 			if (data->uid > 0) return forward_msg_on(data, payload.size());
 
-			handlers::handlers[data->type](std::move(hdl), *(const buffers::server_buffer_t*)&buf);
+			handlers::handlers[data->type](std::move(hdl), *( const buffers::server_buffer_t* ) &buf);
 		}
-
-
 
 		uid::uid_generator uid_gen = {};
 		std::thread internal_server_thread;
@@ -178,7 +176,7 @@ namespace flow::server
 			messages::message_base_t* data = (( messages::message_base_t* ) buf.get_data());
 			if (data->type > messages::message_type::_number_of_message_types) return;
 
-			handlers::handlers[data->type](std::move(hdl),  *(const buffers::server_buffer_t*)&buf);
+			handlers::handlers[data->type](std::move(hdl), *( const buffers::server_buffer_t* ) &buf);
 		}
 
 	private:
@@ -189,6 +187,7 @@ namespace flow::server
 		uid::uid_generator::uid_t uid;
 		websocketpp::connection_hdl hdl;
 	};
+
 
 	class guest_client_t
 	{
@@ -225,11 +224,18 @@ namespace flow::server
 			return server_config;
 		}
 
-		inline uid::uid_generator::uid_t get_uid() const { return uid; }
-		inline void set_uid(uid::uid_generator::uid_t n_uid) { uid = n_uid;}
+		inline uid::uid_generator::uid_t get_uid() const
+		{
+			return uid;
+		}
+		inline void set_uid(uid::uid_generator::uid_t n_uid)
+		{
+			uid = n_uid;
+		}
 
 	private:
 		std::string scan();
+		void connect_func(lib_wm::WindowManager& wm);
 		void internal_connect(const std::string& url);
 
 		/*

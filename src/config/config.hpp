@@ -1,9 +1,14 @@
 #ifndef WM_CONFIG_HPP
 #define WM_CONFIG_HPP
 #include <iostream>
+#include "../nullable/nullable.hpp"
+#include <nlohmann/json.hpp>
+
 
 namespace flow::config
 {
+
+	using json = nlohmann::json;
 
 #define ADD_OPERATOR_COPY(operand)                                                                             \
 	template <typename V>                                                                                      \
@@ -143,7 +148,13 @@ namespace flow::config
 	{
 		server_config();
 
+		json to_json();
+		static server_config* from_json(json& j);
+		static nullable::Nullable<server_config> get_local_config();
+
+
 		server_location_t server_location;
+		std::vector<std::string> known_hosts;
 	};
 } // namespace flow::config
 

@@ -64,7 +64,7 @@ namespace flow::server
 		return client.uid;
 	}
 
-	guest_client_t::guest_client_t()
+	guest_client_t::guest_client_t() : server_config(config::server_config::get_local_config())
 	{
 		client.clear_access_channels(websocketpp::log::alevel::all);
 		client.clear_error_channels(websocketpp::log::elevel::all);
@@ -94,9 +94,9 @@ namespace flow::server
 		};
 	} // namespace internal
 
-	inline internal::ip_t scan_range(internal::ip_t begin, internal::ip_t end, unsigned int thread_count)
+	inline internal::ip_t scan_range(internal::ip_t begin, internal::ip_t end, const unsigned int thread_count)
 	{
-		const int take_amount = 50;
+		const int take_amount = 50 * thread_count;
 		const int timeout = 100; //ms
 
 		std::mutex m;
@@ -117,76 +117,53 @@ namespace flow::server
 			}
 		}
 
-		std::mutex m2;
-		bool quit = false;
-		std::vector<std::thread> threads;
-		internal::ip_t server_ip = internal::ip_t::zero();
-		auto should_quit = [&]() { std::lock_guard<std::mutex> lk(m2); return quit; };
-		auto func = [&]() {
-			std::vector<internal::ip_t> local_ips;
-			std::vector<cpr::AsyncResponse> responses;
-			while (!should_quit())
+		std::vector<internal::ip_t> local_ips;
+		std::vector<cpr::AsyncResponse> responses;
+		while (true)
+		{
+			responses.reserve(take_amount);
+			local_ips.reserve(take_amount);
 			{
-				responses.reserve(take_amount);
-				local_ips.reserve(take_amount);
+				if (ips.size() > take_amount)
 				{
-					std::lock_guard<std::mutex> lk(m);
-					if (ips.size() > take_amount)
-					{
-						local_ips.assign(ips.end() - take_amount, ips.end());
-						ips.erase(ips.end() - take_amount, ips.end());
-					}
-					else if (!ips.empty())
-					{
-						local_ips.assign(ips.begin(), ips.end());
-						ips.erase(ips.begin(), ips.end());
-					}
-					else
-					{
-						break;
-					}
+					local_ips.assign(ips.end() - take_amount, ips.end());
+					ips.erase(ips.end() - take_amount, ips.end());
 				}
-
-				for (const auto& item : local_ips)
+				else if (!ips.empty())
 				{
-
-					responses.emplace_back(cpr::GetAsync(cpr::Url {item.to_str()}, cpr::Timeout {timeout}));
+					local_ips.assign(ips.begin(), ips.end());
+					ips.erase(ips.begin(), ips.end());
 				}
-
-				for (int i = 0; i < take_amount; ++i)
+				else
 				{
-					if (!responses[i].valid()) {
-						logger::notify(local_ips[i].to_str(), "is invalid");
-					}
-					responses[i].wait();
-					cpr::Response resp = responses[i].get();
-					auto s_head = resp.header.find("Server");
-					if (s_head != resp.header.end() && s_head->second == server::AUTH_STRING)
-					{
-						std::lock_guard<std::mutex> lk(m2);
-						server_ip = local_ips[i];
-						quit = true;
-					}
+					break;
 				}
-
-				local_ips.erase(local_ips.begin(), local_ips.end());
-				responses.erase(responses.begin(), responses.end());
 			}
-		};
 
-		func();
+			for (const auto& item : local_ips)
+			{
 
-		for (int i = 0; i < thread_count; ++i)
-		{
-			threads.emplace_back(func);
+				responses.emplace_back(cpr::GetAsync(cpr::Url {item.to_str()}, cpr::Timeout {timeout}));
+			}
+
+			for (int i = 0; i < take_amount; ++i)
+			{
+				if (!responses[i].valid())
+				{
+					logger::notify<logger::Debug>(local_ips[i].to_str(), "is invalid");
+					continue;
+				}
+				responses[i].wait();
+				cpr::Response resp = responses[i].get();
+				auto s_head = resp.header.find("Server");
+				if (s_head != resp.header.end() && s_head->second == server::AUTH_STRING) return local_ips[i];
+			}
+
+			local_ips.erase(local_ips.begin(), local_ips.end());
+			responses.erase(responses.begin(), responses.end());
 		}
 
-		for (int i = 0; i < thread_count; ++i)
-		{
-			if (threads[i].joinable()) threads[i].join();
-		}
-
-		return server_ip;
+		return internal::ip_t::zero();
 	}
 
 	std::string guest_client_t::scan()
@@ -244,20 +221,24 @@ namespace flow::server
 		client.send(ptr->get_hdl(), &msg, sizeof(msg), websocketpp::frame::opcode::BINARY, ec);
 	}
 
+	void guest_client_t::connect_func(lib_wm::WindowManager& wm)
+	{
+
+		auto url = scan();
+		if (url.empty())
+		{
+			hs = new host_server_t();
+			handlers::init_handlers(wm, ( void* ) this, ( void* ) hs);
+			hs->run();
+			url = "ws://127.0.0.1:" + std::to_string(SERVER_PORT);
+		}
+		handlers::init_handlers(wm, ( void* ) this, ( void* ) hs);
+		internal_connect("ws://" + url);
+	}
+
 	void guest_client_t::connect(lib_wm::WindowManager& wm)
 	{
-		internal_connect_thread = std::thread([&]() {
-			auto url = scan();
-			if (url.empty())
-			{
-				hs = new host_server_t();
-				handlers::init_handlers(wm, ( void* ) this, ( void* ) hs);
-				hs->run();
-				url = "ws://127.0.0.1:" + std::to_string(SERVER_PORT);
-			}
-			handlers::init_handlers(wm, ( void* ) this, ( void* ) hs);
-			internal_connect("ws://" + url);
-		});
+		internal_connect_thread = std::thread([&]() { connect_func(wm); });
 	}
 
 	guest_client_t::~guest_client_t()
@@ -270,4 +251,6 @@ namespace flow::server
 
 		thread->join();
 	}
+
+
 } // namespace flow::server

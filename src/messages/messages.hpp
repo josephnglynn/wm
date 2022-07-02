@@ -18,8 +18,6 @@
 	H(host, HOST_UID, connect_test, bool good;) \
 	H(host, HOST_UID, initial_connect, )
 
-
-
 #define PLACE_MESSAGE_TYPE_AS_ENUM_REQ(recipient, uid, name, ...) recipient##_##name##_request,
 #define PLACE_MESSAGE_TYPE_AS_ENUM_RES(recipient, uid, name, ...) recipient##_##name##_response,
 #define CREATE_STRUCTURE_REQ(recipient, uid_bit, name, ...)                                              \
@@ -29,7 +27,8 @@
 		{}                                                                                               \
                                                                                                          \
 		const message_type type = recipient##_##name##_request;                                          \
-		uid::uid_generator::uid_t uid;                                                             \
+		uid::uid_generator::uid_t to;                                                                    \
+		uid::uid_generator::uid_t from;                                                                  \
 		__VA_ARGS__                                                                                      \
 	};
 
@@ -40,7 +39,8 @@
 		{}                                                                                                \
                                                                                                           \
 		const message_type type = recipient##_##name##_response;                                          \
-		uid::uid_generator::uid_t uid;                                                              \
+		uid::uid_generator::uid_t to;                                                                     \
+		uid::uid_generator::uid_t from;                                                                   \
 		__VA_ARGS__                                                                                       \
 	};
 

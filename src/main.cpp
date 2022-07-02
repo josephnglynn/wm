@@ -98,8 +98,7 @@ int main()
 	logger::init();
 
 	const auto home = std::string(std::getenv("HOME"));
-	const auto server_data_location = home + "/.config/flow_wm/server_config";
-	std::filesystem::create_directories(home + "/.config/flow_wm");
+	std::filesystem::create_directories(home + "/.config/flow_wm"); // J in case
 
 	auto* wm = new lib_wm::WindowManager(new custom_shell_t());
 

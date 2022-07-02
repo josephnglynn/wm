@@ -33,7 +33,8 @@ namespace flow::serialization
 	{
 		messages::message_host_initial_connect_request_t msg;
 		buffer.read(sizeof(msg.type));
-		msg.uid = *( uid::uid_generator::uid_t* ) buffer.read(sizeof(msg.uid));
+		msg.to = *( uid::uid_generator::uid_t* ) buffer.read(sizeof(msg.to));
+		msg.from = *( uid::uid_generator::uid_t* ) buffer.read(sizeof(msg.from));
 		msg.server_config = deserialize<config::server_config>(buffer);
 		return msg;
 	}

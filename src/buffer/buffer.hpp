@@ -132,24 +132,17 @@ namespace flow::buffers
 
 #define WRITE_DEFAULT_INFO() \
 	WRITE_MEMBER(type);      \
-	WRITE_MEMBER(uid)
+	WRITE_MEMBER(to);           \
+	WRITE_MEMBER(from)
 
-	template <>
-	template <>
-	inline buffer_write_result_t<char, int> buffer_t<char, int>::write(config::vec3<int>& t)
-	{
-		WRITE_MEMBER(x);
-		WRITE_MEMBER(y);
-		WRITE_MEMBER(z);
-		return {};
-	}
 
 	template <>
 	template <>
 	inline buffer_write_result_t<char, int> buffer_t<char, int>::write(config::server_config& t)
 	{
-		write(t.server_location);
-		//TODO FINISH AFTER SERVER CONFIG
+		auto j = t.to_json();
+		auto str = j.dump();
+		write(str.data(), str.size());
 		return {};
 	}
 
