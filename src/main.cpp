@@ -102,7 +102,7 @@ int main()
 
 	auto* wm = new lib_wm::WindowManager(new custom_shell_t());
 
-    flow::server::guest_client_t guest;
+	flow::server::guest_client_t guest;
 	guest.connect(*wm);
 
 	wm->run();
